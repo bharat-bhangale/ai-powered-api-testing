@@ -37,12 +37,16 @@ app.get('/health', (_req, res) => {
 
 // ===== API Routes =====
 import executorRoutes from './modules/executor/executor.routes';
+import authRoutes from './modules/auth/auth.routes';
+import collectionRoutes from './modules/collections/collection.routes';
+import requestRoutes from './modules/requests/request.routes';
+
 app.use('/api', executorRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/collections', collectionRoutes);
+app.use('/api/requests', requestRoutes);
 
 // Future routes:
-// app.use('/api/auth', authRoutes);
-// app.use('/api/collections', collectionRoutes);
-// app.use('/api/requests', requestRoutes);
 // app.use('/api/environments', environmentRoutes);
 // app.use('/api/history', historyRoutes);
 // app.use('/api/import', importRoutes);

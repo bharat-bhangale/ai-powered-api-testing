@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useAuthStore } from '../stores/authStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -7,8 +8,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
  * - Base URL from environment variable
  * - Credentials included (for HTTP-only refresh cookies)
  * - JSON content type
- * - Request interceptor: attaches access token
- * - Response interceptor: handles 401 token refresh
+ * - Request interceptor: attaches access token from authStore
+ * - Response interceptor: auto-refresh on 401
  */
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -20,11 +21,11 @@ export const apiClient = axios.create({
 });
 
 /**
- * Request interceptor — attaches the access token from localStorage.
+ * Request interceptor — attaches the access token from Zustand authStore.
  */
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('atx-access-token');
+    const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -34,7 +35,10 @@ apiClient.interceptors.request.use(
 );
 
 /**
- * Flag to prevent infinite refresh loops.
+ * Response interceptor — auto-refresh on 401.
+ * - On first 401: attempt token refresh, then retry original request.
+ * - On refresh failure: logout and redirect to /login.
+ * - Uses queue to batch concurrent 401s during refresh.
  */
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -53,17 +57,14 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
-/**
- * Response interceptor — handles 401 by attempting a token refresh.
- * If refresh succeeds, retries the original request.
- * If refresh fails, clears auth state and redirects to login.
- */
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
+    // Only handle 401s that haven't been retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // If already refreshing, queue the request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
@@ -77,15 +78,14 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await apiClient.post('/api/auth/refresh');
-        const { accessToken } = response.data.data;
-        localStorage.setItem('atx-access-token', accessToken);
-        processQueue(null, accessToken);
-        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        await useAuthStore.getState().refreshToken();
+        const newToken = useAuthStore.getState().accessToken;
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        localStorage.removeItem('atx-access-token');
+        useAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

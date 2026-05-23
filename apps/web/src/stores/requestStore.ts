@@ -49,6 +49,8 @@ export interface RequestTab {
   response: ExecutionResponse | null;
   isLoading: boolean;
   isDirty: boolean;
+  savedRequestId?: string;
+  savedCollectionId?: string;
 }
 
 /**
@@ -101,6 +103,21 @@ interface RequestStore {
   // Response + loading
   setResponse: (tabId: string, response: ExecutionResponse) => void;
   setLoading: (tabId: string, loading: boolean) => void;
+
+  // Save/Load
+  loadSavedRequest: (saved: {
+    _id: string;
+    name: string;
+    method: string;
+    url: string;
+    collectionId: string;
+    folderId: string | null;
+    headers?: KeyValuePair[];
+    params?: KeyValuePair[];
+    body?: RequestBodyConfig;
+    auth?: AuthConfig;
+  }) => void;
+  markSaved: (tabId: string, savedRequestId: string, savedCollectionId: string) => void;
 }
 
 /**
@@ -233,6 +250,50 @@ export const useRequestStore = create<RequestStore>((set) => {
       set((state) => ({
         tabs: state.tabs.map((t) =>
           t.id === tabId ? { ...t, isLoading: loading } : t,
+        ),
+      }));
+    },
+
+    loadSavedRequest: (saved) => {
+      set((state) => {
+        // Check if this saved request is already open in a tab
+        const existingTab = state.tabs.find(
+          (t) => t.savedRequestId === saved._id,
+        );
+        if (existingTab) {
+          return { activeTabId: existingTab.id };
+        }
+
+        // Create a new tab with the saved request data
+        const newTab: RequestTab = {
+          id: crypto.randomUUID(),
+          name: saved.name,
+          method: (saved.method as HttpMethod) || 'GET',
+          url: saved.url || '',
+          headers: saved.headers?.length ? saved.headers : [createBlankPair()],
+          params: saved.params?.length ? saved.params : [createBlankPair()],
+          body: saved.body || { mode: 'none', content: '' },
+          auth: saved.auth || { type: 'none' },
+          response: null,
+          isLoading: false,
+          isDirty: false,
+          savedRequestId: saved._id,
+          savedCollectionId: saved.collectionId,
+        };
+
+        return {
+          tabs: [...state.tabs, newTab],
+          activeTabId: newTab.id,
+        };
+      });
+    },
+
+    markSaved: (tabId, savedRequestId, savedCollectionId) => {
+      set((state) => ({
+        tabs: state.tabs.map((t) =>
+          t.id === tabId
+            ? { ...t, isDirty: false, savedRequestId, savedCollectionId }
+            : t,
         ),
       }));
     },
