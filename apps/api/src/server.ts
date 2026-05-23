@@ -4,13 +4,17 @@ import { connectDatabase } from './config/database';
 
 /**
  * Server entry point.
- * 1. Connects to MongoDB
+ * 1. Optionally connects to MongoDB (skips if MONGODB_URI not set)
  * 2. Starts Express on the configured port
  */
 async function start(): Promise<void> {
   try {
-    // Connect to database
-    await connectDatabase();
+    // Connect to database if URI is provided
+    if (env.MONGODB_URI) {
+      await connectDatabase();
+    } else {
+      console.log('⚠️ MONGODB_URI not set — running without database');
+    }
 
     // Start HTTP server
     app.listen(env.PORT, () => {

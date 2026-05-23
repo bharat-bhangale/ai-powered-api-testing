@@ -10,9 +10,9 @@ dotenv.config();
 const envSchema = z.object({
   PORT: z.string().default('8000').transform(Number),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
-  ACCESS_TOKEN_SECRET: z.string().min(32, 'ACCESS_TOKEN_SECRET must be at least 32 characters'),
-  REFRESH_TOKEN_SECRET: z.string().min(32, 'REFRESH_TOKEN_SECRET must be at least 32 characters'),
+  MONGODB_URI: z.string().optional(),
+  ACCESS_TOKEN_SECRET: z.string().default('dev-access-secret-replace-in-prod-1234567890'),
+  REFRESH_TOKEN_SECRET: z.string().default('dev-refresh-secret-replace-in-prod-1234567890'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   OPENAI_API_KEY: z.string().optional(),
 });

@@ -1,0 +1,77 @@
+.urlBar {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition-normal);
+}
+
+.urlBar:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-subtle);
+}
+
+.urlInput {
+  flex: 1;
+  height: 100%;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.urlInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.sendButton {
+  flex-shrink: 0;
+  height: 100%;
+  padding: 0 var(--space-5);
+  background: var(--color-primary);
+  border: none;
+  color: white;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+}
+
+.sendButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
+.sendButton:active:not(:disabled) {
+  background: var(--color-primary-active);
+}
+
+.sendButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

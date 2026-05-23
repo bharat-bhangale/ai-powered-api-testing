@@ -18,7 +18,8 @@
     "mongoose": "^8.9.0",
     "zod": "^3.23.0",
     "jsonwebtoken": "^9.0.0",
-    "bcryptjs": "^3.0.0"
+    "bcryptjs": "^3.0.0",
+    "axios": "^1.7.0"
   },
   "devDependencies": {
     "typescript": "~5.7.0",

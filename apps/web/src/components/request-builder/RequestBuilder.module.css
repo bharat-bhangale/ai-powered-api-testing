@@ -1,0 +1,50 @@
+.builder {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-4);
+  gap: var(--space-4);
+}
+
+.requestSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.urlSection {
+  /* URL bar container */
+}
+
+.panelSection {
+  /* Request panel container */
+}
+
+.responseSection {
+  /* Response viewer container */
+}
+
+/* Large screens: side-by-side layout */
+@media (min-width: 1400px) {
+  .workspace {
+    flex-direction: row;
+  }
+
+  .requestSection {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .responseSection {
+    flex: 1;
+    min-width: 0;
+  }
+}

@@ -36,9 +36,11 @@ app.get('/health', (_req, res) => {
 });
 
 // ===== API Routes =====
-// Routes will be registered here as modules are built:
+import executorRoutes from './modules/executor/executor.routes';
+app.use('/api', executorRoutes);
+
+// Future routes:
 // app.use('/api/auth', authRoutes);
-// app.use('/api/execute', executorRoutes);
 // app.use('/api/collections', collectionRoutes);
 // app.use('/api/requests', requestRoutes);
 // app.use('/api/environments', environmentRoutes);
