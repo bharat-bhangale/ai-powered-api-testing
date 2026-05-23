@@ -95,7 +95,7 @@ export const RequestPanel = ({
           <BodyEditor
             mode={body.mode}
             content={body.content}
-            onModeChange={(mode) => onBodyChange({ ...body, mode })}
+            onModeChange={(mode) => onBodyChange({ ...body, mode: mode as RequestBodyConfig['mode'] })}
             onContentChange={(content) => onBodyChange({ ...body, content })}
           />
         )}
