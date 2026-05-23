@@ -1,0 +1,12 @@
+{
+  "name": "post-edit-lint",
+  "description": "Auto-runs TypeScript type checking after file edits to catch errors early",
+  "trigger": "PostToolUse",
+  "category": "inspect",
+  "condition": {
+    "filePatterns": ["*.ts", "*.tsx"]
+  },
+  "action": {
+    "command": "npx tsc --noEmit --pretty 2>&1 | head -20"
+  }
+}

@@ -1,0 +1,127 @@
+:root {
+  /* ===== Primary ===== */
+  --color-primary: hsl(220, 90%, 56%);
+  --color-primary-hover: hsl(220, 90%, 50%);
+  --color-primary-active: hsl(220, 90%, 44%);
+  --color-primary-subtle: hsla(220, 90%, 56%, 0.12);
+
+  /* ===== Backgrounds ===== */
+  --color-bg-app: hsl(220, 20%, 10%);
+  --color-bg-surface: hsl(220, 18%, 14%);
+  --color-bg-elevated: hsl(220, 16%, 18%);
+  --color-bg-hover: hsl(220, 15%, 20%);
+  --color-bg-active: hsl(220, 14%, 22%);
+  --color-bg-input: hsl(220, 18%, 12%);
+
+  /* ===== Borders ===== */
+  --color-border: hsl(220, 15%, 22%);
+  --color-border-hover: hsl(220, 15%, 28%);
+  --color-border-focus: var(--color-primary);
+
+  /* ===== Text ===== */
+  --color-text-primary: hsl(0, 0%, 93%);
+  --color-text-secondary: hsl(220, 10%, 60%);
+  --color-text-tertiary: hsl(220, 10%, 45%);
+  --color-text-inverse: hsl(220, 20%, 10%);
+
+  /* ===== Status ===== */
+  --color-success: hsl(142, 70%, 49%);
+  --color-warning: hsl(38, 92%, 50%);
+  --color-error: hsl(0, 84%, 60%);
+  --color-info: hsl(199, 89%, 48%);
+
+  /* ===== HTTP Methods ===== */
+  --color-method-get: #22c55e;
+  --color-method-post: #f97316;
+  --color-method-put: #3b82f6;
+  --color-method-patch: #a855f7;
+  --color-method-delete: #ef4444;
+  --color-method-head: #06b6d4;
+  --color-method-options: #6b7280;
+
+  /* ===== Status Codes ===== */
+  --color-status-2xx: var(--color-success);
+  --color-status-3xx: var(--color-info);
+  --color-status-4xx: var(--color-warning);
+  --color-status-5xx: var(--color-error);
+
+  /* ===== Spacing ===== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ===== Typography ===== */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 16px;
+  --text-xl: 18px;
+  --text-2xl: 20px;
+  --text-3xl: 24px;
+
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* ===== Border Radius ===== */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ===== Shadows ===== */
+  --shadow-sm: 0 1px 2px hsla(0, 0%, 0%, 0.3);
+  --shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.3);
+  --shadow-lg: 0 10px 15px -3px hsla(0, 0%, 0%, 0.3);
+  --shadow-xl: 0 20px 25px -5px hsla(0, 0%, 0%, 0.4);
+
+  /* ===== Transitions ===== */
+  --transition-fast: 100ms ease;
+  --transition-normal: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* ===== Layout ===== */
+  --sidebar-width: 280px;
+  --topbar-height: 48px;
+  --statusbar-height: 28px;
+  --tab-height: 36px;
+  --ai-panel-width: 360px;
+}
+
+/* ===== Light Theme ===== */
+[data-theme='light'] {
+  --color-bg-app: hsl(220, 20%, 97%);
+  --color-bg-surface: hsl(0, 0%, 100%);
+  --color-bg-elevated: hsl(220, 20%, 98%);
+  --color-bg-hover: hsl(220, 15%, 94%);
+  --color-bg-active: hsl(220, 14%, 91%);
+  --color-bg-input: hsl(0, 0%, 100%);
+
+  --color-border: hsl(220, 15%, 88%);
+  --color-border-hover: hsl(220, 15%, 80%);
+
+  --color-text-primary: hsl(220, 20%, 14%);
+  --color-text-secondary: hsl(220, 10%, 44%);
+  --color-text-tertiary: hsl(220, 10%, 60%);
+
+  --shadow-sm: 0 1px 2px hsla(0, 0%, 0%, 0.06);
+  --shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.08);
+  --shadow-lg: 0 10px 15px -3px hsla(0, 0%, 0%, 0.1);
+  --shadow-xl: 0 20px 25px -5px hsla(0, 0%, 0%, 0.12);
+}
