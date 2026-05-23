@@ -1,16 +1,23 @@
 import type { Request, Response } from 'express';
 import { CollectionService } from './collection.service';
+import {
+  createCollectionSchema,
+  updateCollectionSchema,
+  addFolderSchema,
+  renameFolderSchema,
+} from '../../utils/validation';
 
 const collectionService = new CollectionService();
 
 /** POST /api/collections */
 export async function createCollection(req: Request, res: Response): Promise<void> {
   try {
-    const { name, description } = req.body;
-    if (!name) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Name is required' } });
+    const parsed = createCollectionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message || 'Invalid input' } });
       return;
     }
+    const { name, description } = parsed.data;
     const collection = await collectionService.create(req.userId!, name, description);
     res.status(201).json({ success: true, data: { collection } });
   } catch (error: unknown) {
@@ -46,7 +53,12 @@ export async function getCollection(req: Request, res: Response): Promise<void> 
 export async function updateCollection(req: Request, res: Response): Promise<void> {
   try {
     const id = req.params.id as string;
-    const collection = await collectionService.update(req.userId!, id, req.body);
+    const parsed = updateCollectionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message || 'Invalid input' } });
+      return;
+    }
+    const collection = await collectionService.update(req.userId!, id, parsed.data);
     res.json({ success: true, data: { collection } });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to update collection';
@@ -69,12 +81,13 @@ export async function deleteCollection(req: Request, res: Response): Promise<voi
 /** POST /api/collections/:id/folders */
 export async function addFolder(req: Request, res: Response): Promise<void> {
   try {
-    const { name, parentFolderId } = req.body;
     const id = req.params.id as string;
-    if (!name) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Folder name is required' } });
+    const parsed = addFolderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message || 'Invalid input' } });
       return;
     }
+    const { name, parentFolderId } = parsed.data;
     const collection = await collectionService.addFolder(req.userId!, id, name, parentFolderId);
     res.status(201).json({ success: true, data: { collection } });
   } catch (error: unknown) {
@@ -86,13 +99,14 @@ export async function addFolder(req: Request, res: Response): Promise<void> {
 /** PATCH /api/collections/:id/folders/:fid */
 export async function renameFolder(req: Request, res: Response): Promise<void> {
   try {
-    const { name } = req.body;
     const id = req.params.id as string;
     const fid = req.params.fid as string;
-    if (!name) {
-      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Name is required' } });
+    const parsed = renameFolderSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message || 'Invalid input' } });
       return;
     }
+    const { name } = parsed.data;
     const collection = await collectionService.renameFolder(req.userId!, id, fid, name);
     res.json({ success: true, data: { collection } });
   } catch (error: unknown) {

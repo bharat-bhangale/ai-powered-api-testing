@@ -27,6 +27,17 @@
   padding-left: calc(var(--space-6) + var(--space-4));
 }
 
+/* Active request — highlighted when open in current tab */
+.requestActive {
+  background: var(--color-primary-subtle);
+  border-left: 2px solid var(--color-primary);
+}
+
+.requestActive .requestName {
+  color: var(--color-primary);
+  font-weight: var(--font-medium);
+}
+
 /* Chevron */
 .chevron {
   display: flex;
@@ -57,6 +68,21 @@
   white-space: nowrap;
 }
 
+/* Inline rename input */
+.renameInput {
+  flex: 1;
+  height: 22px;
+  padding: 0 var(--space-2);
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary-subtle);
+}
+
 /* Count badge */
 .count {
   font-size: var(--text-xs);
@@ -65,32 +91,6 @@
   min-width: 16px;
   text-align: center;
   flex-shrink: 0;
-}
-
-/* Delete button */
-.deleteBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  opacity: 0;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.row:hover .deleteBtn {
-  opacity: 1;
-}
-
-.deleteBtn:hover {
-  color: var(--color-error);
-  background: hsla(0, 84%, 60%, 0.1);
 }
 
 /* Children container */

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { registerSchema, loginSchema } from '../../utils/validation';
 
 const authService = new AuthService();
 
@@ -17,15 +18,16 @@ const COOKIE_OPTIONS = {
  */
 export async function register(req: Request, res: Response): Promise<void> {
   try {
-    const { email, name, password } = req.body;
-
-    if (!email || !name || !password) {
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Email, name, and password are required' },
+        error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message || 'Invalid input' },
       });
       return;
     }
+
+    const { email, name, password } = parsed.data;
 
     const { user, accessToken, refreshToken } = await authService.register(
       email,
@@ -52,15 +54,16 @@ export async function register(req: Request, res: Response): Promise<void> {
  */
 export async function login(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
       res.status(400).json({
         success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Email and password are required' },
+        error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message || 'Invalid input' },
       });
       return;
     }
+
+    const { email, password } = parsed.data;
 
     const { user, accessToken, refreshToken } = await authService.login(
       email,

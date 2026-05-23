@@ -13,8 +13,28 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 /**
+ * Get display name for a tab.
+ * Priority: saved name > URL path > "Untitled Request"
+ */
+const getTabDisplayName = (tab: {
+  name: string;
+  url: string;
+  savedRequestId?: string;
+}): string => {
+  // If saved, always show the saved name
+  if (tab.savedRequestId && tab.name !== 'Untitled Request') {
+    return tab.name;
+  }
+  // Otherwise show truncated URL or fallback
+  if (tab.url) {
+    return tab.url.replace(/^https?:\/\//, '').substring(0, 30);
+  }
+  return tab.name;
+};
+
+/**
  * Browser-style request tab bar.
- * Shows: method dot + tab name, close button on hover, + button at end.
+ * Shows: method dot + tab name, dirty indicator, close button on hover, + button at end.
  */
 export const RequestTabs = () => {
   const { tabs, activeTabId, addTab, closeTab, setActiveTab } = useRequestStore();
@@ -43,13 +63,18 @@ export const RequestTabs = () => {
 
             {/* Tab name */}
             <span className={styles.tabName}>
-              {tab.url
-                ? tab.url.replace(/^https?:\/\//, '').substring(0, 30)
-                : tab.name}
+              {getTabDisplayName(tab)}
             </span>
 
-            {/* Dirty indicator */}
-            {tab.isDirty && <span className={styles.dirtyDot} />}
+            {/* Dirty indicator (•) for modified saved requests */}
+            {tab.isDirty && tab.savedRequestId && (
+              <span className={styles.dirtyIndicator}>•</span>
+            )}
+
+            {/* Unsaved dot for new tabs */}
+            {tab.isDirty && !tab.savedRequestId && (
+              <span className={styles.dirtyDot} />
+            )}
 
             {/* Close button */}
             <span
