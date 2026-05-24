@@ -3,6 +3,7 @@ import { Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRequestStore } from '@/stores/requestStore';
 import { useCollectionStore } from '@/stores/collectionStore';
+import { useEnvironmentStore } from '@/stores/environmentStore';
 import { apiClient } from '@/services/api';
 import { RequestTabs } from './RequestTabs';
 import { UrlBar } from './UrlBar';
@@ -48,6 +49,8 @@ export const RequestBuilder = () => {
         headers: activeTab.headers,
         params: activeTab.params,
         body: activeTab.body,
+        auth: activeTab.auth,
+        environmentId: useEnvironmentStore.getState().activeEnvironmentId,
       });
       setResponse(activeTab.id, res.data.data);
     } catch (error: unknown) {

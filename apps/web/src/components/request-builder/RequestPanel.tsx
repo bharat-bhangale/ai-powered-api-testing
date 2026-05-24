@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyValueEditor } from '@/components/common/KeyValueEditor';
 import { BodyEditor } from './BodyEditor';
+import { AuthConfigPanel } from './AuthConfig';
 import type { KeyValuePair, RequestBodyConfig, AuthConfig } from '@/stores/requestStore';
 import styles from './RequestPanel.module.css';
 
@@ -101,160 +102,9 @@ export const RequestPanel = ({
         )}
 
         {activeSubTab === 'auth' && (
-          <AuthEditor auth={auth} onChange={onAuthChange} />
+          <AuthConfigPanel auth={auth} onChange={onAuthChange} />
         )}
       </div>
-    </div>
-  );
-};
-
-/* ===== Auth Editor (inline) ===== */
-
-interface AuthEditorProps {
-  auth: AuthConfig;
-  onChange: (auth: AuthConfig) => void;
-}
-
-const AUTH_TYPES: { value: AuthConfig['type']; label: string }[] = [
-  { value: 'none', label: 'No Auth' },
-  { value: 'bearer', label: 'Bearer Token' },
-  { value: 'basic', label: 'Basic Auth' },
-  { value: 'apikey', label: 'API Key' },
-];
-
-const AuthEditor = ({ auth, onChange }: AuthEditorProps) => {
-  return (
-    <div className={styles.authEditor}>
-      <div className={styles.authTypeSelector}>
-        {AUTH_TYPES.map((type) => (
-          <label
-            key={type.value}
-            className={`${styles.authTypeOption} ${auth.type === type.value ? styles.authTypeActive : ''}`}
-          >
-            <input
-              type="radio"
-              name="authType"
-              value={type.value}
-              checked={auth.type === type.value}
-              onChange={() => onChange({ ...auth, type: type.value })}
-            />
-            <span>{type.label}</span>
-          </label>
-        ))}
-      </div>
-
-      {auth.type === 'none' && (
-        <div className={styles.authNone}>
-          This request does not use any authorization
-        </div>
-      )}
-
-      {auth.type === 'bearer' && (
-        <div className={styles.authFields}>
-          <label className={styles.fieldLabel}>Token</label>
-          <input
-            className={styles.fieldInput}
-            type="text"
-            value={auth.bearer?.token || ''}
-            onChange={(e) =>
-              onChange({ ...auth, bearer: { token: e.target.value } })
-            }
-            placeholder="Enter bearer token"
-            spellCheck={false}
-          />
-        </div>
-      )}
-
-      {auth.type === 'basic' && (
-        <div className={styles.authFields}>
-          <label className={styles.fieldLabel}>Username</label>
-          <input
-            className={styles.fieldInput}
-            type="text"
-            value={auth.basic?.username || ''}
-            onChange={(e) =>
-              onChange({
-                ...auth,
-                basic: { username: e.target.value, password: auth.basic?.password || '' },
-              })
-            }
-            placeholder="Username"
-            spellCheck={false}
-          />
-          <label className={styles.fieldLabel}>Password</label>
-          <input
-            className={styles.fieldInput}
-            type="password"
-            value={auth.basic?.password || ''}
-            onChange={(e) =>
-              onChange({
-                ...auth,
-                basic: { username: auth.basic?.username || '', password: e.target.value },
-              })
-            }
-            placeholder="Password"
-          />
-        </div>
-      )}
-
-      {auth.type === 'apikey' && (
-        <div className={styles.authFields}>
-          <label className={styles.fieldLabel}>Key</label>
-          <input
-            className={styles.fieldInput}
-            type="text"
-            value={auth.apiKey?.key || ''}
-            onChange={(e) =>
-              onChange({
-                ...auth,
-                apiKey: {
-                  key: e.target.value,
-                  value: auth.apiKey?.value || '',
-                  addTo: auth.apiKey?.addTo || 'header',
-                },
-              })
-            }
-            placeholder="Key name"
-            spellCheck={false}
-          />
-          <label className={styles.fieldLabel}>Value</label>
-          <input
-            className={styles.fieldInput}
-            type="text"
-            value={auth.apiKey?.value || ''}
-            onChange={(e) =>
-              onChange({
-                ...auth,
-                apiKey: {
-                  key: auth.apiKey?.key || '',
-                  value: e.target.value,
-                  addTo: auth.apiKey?.addTo || 'header',
-                },
-              })
-            }
-            placeholder="Key value"
-            spellCheck={false}
-          />
-          <label className={styles.fieldLabel}>Add to</label>
-          <select
-            className={styles.fieldInput}
-            value={auth.apiKey?.addTo || 'header'}
-            onChange={(e) =>
-              onChange({
-                ...auth,
-                apiKey: {
-                  key: auth.apiKey?.key || '',
-                  value: auth.apiKey?.value || '',
-                  addTo: e.target.value as 'header' | 'query',
-                },
-              })
-            }
-          >
-            <option value="header">Header</option>
-            <option value="query">Query Params</option>
-          </select>
-        </div>
-      )}
     </div>
   );
 };

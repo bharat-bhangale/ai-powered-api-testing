@@ -1,16 +1,21 @@
 import type { Request, Response } from 'express';
 import { ExecutorService } from './executor.service';
+import { VariableResolver } from './variable-resolver';
+import { AuthResolver } from './auth-resolver';
+import { EnvironmentService } from '../environments/environment.service';
 
 const executorService = new ExecutorService();
+const environmentService = new EnvironmentService();
+const authResolver = new AuthResolver();
 
 /**
  * POST /api/execute
- * Receives request config from the frontend, executes the HTTP call,
- * and returns the structured result.
+ * Receives request config from the frontend, resolves variables + auth,
+ * executes the HTTP call, and returns the structured result.
  */
 export async function executeRequest(req: Request, res: Response): Promise<void> {
   try {
-    const { method, url, headers, params, body, timeout } = req.body;
+    const { method, url, headers, params, body, auth, environmentId, timeout } = req.body;
 
     // Validate required fields
     if (!url || !method) {
@@ -24,39 +29,40 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
       return;
     }
 
-    // Convert headers array to object (only enabled entries with non-empty key)
+    // ===== Resolve variables from active environment =====
+    let variables: Record<string, string> = {};
+    if (environmentId && req.userId) {
+      variables = await environmentService.getVariables(req.userId, environmentId);
+    }
+    const resolver = new VariableResolver(variables);
+
+    // ===== Resolve URL =====
+    const resolvedUrl = resolver.resolve(url);
+
+    // ===== Resolve headers (array → object, with variable substitution) =====
     const headerObj: Record<string, string> = {};
     if (Array.isArray(headers)) {
-      for (const h of headers) {
-        if (h.enabled && h.key) {
-          headerObj[h.key] = h.value;
-        }
-      }
+      const resolved = resolver.resolveKeyValues(headers);
+      Object.assign(headerObj, resolved);
     }
 
-    // Convert params array to object (only enabled entries with non-empty key)
+    // ===== Resolve params (array → object, with variable substitution) =====
     const paramObj: Record<string, string> = {};
     if (Array.isArray(params)) {
-      for (const p of params) {
-        if (p.enabled && p.key) {
-          paramObj[p.key] = p.value;
-        }
-      }
+      const resolved = resolver.resolveKeyValues(params);
+      Object.assign(paramObj, resolved);
     }
 
-    // Parse body content based on mode
+    // ===== Resolve body =====
     let parsedBody: unknown = undefined;
     if (body && body.mode !== 'none' && body.content) {
-      if (body.mode === 'json') {
-        try {
-          parsedBody = JSON.parse(body.content);
-        } catch {
-          parsedBody = body.content;
-        }
-      } else {
-        parsedBody = body.content;
-      }
+      parsedBody = resolver.resolveBody(body);
     }
+
+    // ===== Resolve auth (inject into headers/params) =====
+    const authResult = authResolver.resolve(auth, resolver);
+    Object.assign(headerObj, authResult.headers);
+    Object.assign(paramObj, authResult.params);
 
     // Auto-set Content-Type for JSON body if not already set
     if (parsedBody && !headerObj['Content-Type'] && !headerObj['content-type']) {
@@ -67,7 +73,7 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
 
     const result = await executorService.execute({
       method,
-      url,
+      url: resolvedUrl,
       headers: headerObj,
       params: paramObj,
       body: parsedBody,

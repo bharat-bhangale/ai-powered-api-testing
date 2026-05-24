@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { MethodSelector } from './MethodSelector';
+import { VariableInput } from '@/components/common/VariableInput';
 import type { HttpMethod } from '@/stores/requestStore';
 import styles from './UrlBar.module.css';
 
@@ -33,17 +34,12 @@ export const UrlBar = ({
     <div className={styles.urlBar}>
       <MethodSelector method={method} onChange={onMethodChange} />
 
-      <input
-        ref={inputRef}
+      <VariableInput
         id="url-input"
         className={styles.urlInput}
-        type="text"
         value={url}
-        onChange={(e) => onUrlChange(e.target.value)}
-        onKeyDown={handleKeyDown}
+        onChange={onUrlChange}
         placeholder="Enter request URL or paste cURL"
-        spellCheck={false}
-        autoComplete="off"
       />
 
       <button

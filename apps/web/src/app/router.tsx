@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
+import { useEnvironmentStore } from '@/stores/environmentStore';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { RequestBuilder } from '@/components/request-builder/RequestBuilder';
@@ -60,6 +61,11 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
  */
 const MainApp = () => {
   useKeyboardShortcuts();
+  const fetchEnvironments = useEnvironmentStore((s) => s.fetchEnvironments);
+
+  useEffect(() => {
+    fetchEnvironments();
+  }, [fetchEnvironments]);
 
   return (
     <div className={styles.appLayout}>

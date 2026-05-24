@@ -90,3 +90,22 @@ export const updateRequestSchema = createRequestSchema
   .extend({
     sortOrder: z.number().int().min(0).optional(),
   });
+
+// ===== Environment Validation Schemas =====
+
+const environmentVariableSchema = z.object({
+  key: z.string().min(1, 'Variable key is required'),
+  value: z.string().default(''),
+  type: z.enum(['text', 'secret']).default('text'),
+  description: z.string().default(''),
+});
+
+export const createEnvironmentSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100).trim(),
+  variables: z.array(environmentVariableSchema).optional().default([]),
+});
+
+export const updateEnvironmentSchema = z.object({
+  name: z.string().min(1).max(100).trim().optional(),
+  variables: z.array(environmentVariableSchema).optional(),
+});
