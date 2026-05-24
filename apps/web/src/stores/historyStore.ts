@@ -30,11 +30,13 @@ interface HistoryStore {
   hasMore: boolean;
   search: string;
   methodFilter: string | null;
+  statusFilter: string | null;
 
   fetchHistory: () => Promise<void>;
   loadMore: () => Promise<void>;
   setSearch: (search: string) => void;
   setMethodFilter: (method: string | null) => void;
+  setStatusFilter: (status: string | null) => void;
   clearHistory: () => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
 }
@@ -49,14 +51,16 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   hasMore: true,
   search: '',
   methodFilter: null,
+  statusFilter: null,
 
   fetchHistory: async () => {
     set({ isLoading: true, page: 1 });
     try {
-      const { search, methodFilter } = get();
+      const { search, methodFilter, statusFilter } = get();
       const params: Record<string, string | number> = { page: 1, limit: 50 };
       if (search) params.search = search;
       if (methodFilter) params.method = methodFilter;
+      if (statusFilter) params.status = statusFilter;
 
       const res = await apiClient.get('/api/history', { params });
       set({
@@ -70,13 +74,14 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   },
 
   loadMore: async () => {
-    const { page, hasMore, search, methodFilter } = get();
+    const { page, hasMore, search, methodFilter, statusFilter } = get();
     if (!hasMore) return;
 
     const nextPage = page + 1;
     const params: Record<string, string | number> = { page: nextPage, limit: 50 };
     if (search) params.search = search;
     if (methodFilter) params.method = methodFilter;
+    if (statusFilter) params.status = statusFilter;
 
     try {
       const res = await apiClient.get('/api/history', { params });
@@ -95,6 +100,11 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
 
   setMethodFilter: (method) => {
     set({ methodFilter: method });
+    get().fetchHistory();
+  },
+
+  setStatusFilter: (status) => {
+    set({ statusFilter: status });
     get().fetchHistory();
   },
 

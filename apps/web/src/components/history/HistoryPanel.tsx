@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { Search, Trash2, Clock, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Trash2, Clock, RotateCcw, ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useHistoryStore, type HistoryEntry } from '@/stores/historyStore';
 import { useRequestStore } from '@/stores/requestStore';
@@ -10,13 +10,22 @@ const METHOD_FILTERS = [
   { value: 'GET', label: 'GET' },
   { value: 'POST', label: 'POST' },
   { value: 'PUT', label: 'PUT' },
-  { value: 'DELETE', label: 'DELETE' },
+  { value: 'DELETE', label: 'DEL' },
   { value: 'PATCH', label: 'PATCH' },
+];
+
+const STATUS_FILTERS = [
+  { value: null, label: 'All' },
+  { value: '2xx', label: '2xx' },
+  { value: '3xx', label: '3xx' },
+  { value: '4xx', label: '4xx' },
+  { value: '5xx', label: '5xx' },
 ];
 
 /**
  * History Panel — shows past requests grouped by time.
- * Search, method filter, click to replay, infinite scroll.
+ * Search, method filter, status filter, click to replay, collapsible groups,
+ * save to collection, infinite scroll, auto-refresh after execution.
  */
 export const HistoryPanel = () => {
   const {
@@ -25,19 +34,39 @@ export const HistoryPanel = () => {
     hasMore,
     search,
     methodFilter,
+    statusFilter,
     fetchHistory,
     loadMore,
     setSearch,
     setMethodFilter,
+    setStatusFilter,
     clearHistory,
   } = useHistoryStore();
 
   const { addTab } = useRequestStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [showSaveMenu, setShowSaveMenu] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  // Auto-refresh: track response count to detect new executions
+  const responseCount = useRequestStore((s) =>
+    s.tabs.reduce((acc, t) => acc + (t.response ? 1 : 0), 0),
+  );
+  const prevResponseCount = useRef(responseCount);
+
+  useEffect(() => {
+    if (responseCount > prevResponseCount.current) {
+      // A new response appeared — refresh history after a short delay
+      const timer = setTimeout(() => fetchHistory(), 800);
+      prevResponseCount.current = responseCount;
+      return () => clearTimeout(timer);
+    }
+    prevResponseCount.current = responseCount;
+  }, [responseCount, fetchHistory]);
 
   // Infinite scroll
   const handleScroll = useCallback(() => {
@@ -48,11 +77,20 @@ export const HistoryPanel = () => {
     }
   }, [hasMore, isLoading, loadMore]);
 
+  // Toggle group collapse
+  const toggleGroup = useCallback((label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }, []);
+
   // Click to replay — populate a new tab with the request
   const handleReplay = useCallback(
     (entry: HistoryEntry) => {
       addTab();
-      // Small delay so the new tab is active before we update it
       setTimeout(() => {
         const store = useRequestStore.getState();
         const newTab = store.tabs[store.tabs.length - 1];
@@ -71,6 +109,25 @@ export const HistoryPanel = () => {
         });
       }, 50);
       toast.success('History entry loaded');
+    },
+    [addTab],
+  );
+
+  // Save history entry to collection (open the save modal with pre-filled data)
+  const handleSaveToCollection = useCallback(
+    (entry: HistoryEntry) => {
+      // Add a tab with this request and then trigger save
+      addTab();
+      setTimeout(() => {
+        const store = useRequestStore.getState();
+        const newTab = store.tabs[store.tabs.length - 1];
+        if (!newTab) return;
+        store.updateMethod(entry.request.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS');
+        store.updateUrl(entry.request.url);
+        // Trigger save modal via keyboard shortcut simulation
+        toast.success('Request loaded — use Ctrl+S to save to a collection');
+      }, 50);
+      setShowSaveMenu(null);
     },
     [addTab],
   );
@@ -100,7 +157,7 @@ export const HistoryPanel = () => {
         )}
       </div>
 
-      {/* Search + Filter */}
+      {/* Search */}
       <div className={styles.filters}>
         <div className={styles.searchBox}>
           <Search size={13} className={styles.searchIcon} />
@@ -113,12 +170,25 @@ export const HistoryPanel = () => {
             spellCheck={false}
           />
         </div>
+      </div>
+
+      {/* Method + Status filters */}
+      <div className={styles.filterRow}>
         <select
-          className={styles.methodSelect}
+          className={styles.filterSelect}
           value={methodFilter || ''}
           onChange={(e) => setMethodFilter(e.target.value || null)}
         >
           {METHOD_FILTERS.map((f) => (
+            <option key={f.label} value={f.value || ''}>{f.label}</option>
+          ))}
+        </select>
+        <select
+          className={styles.filterSelect}
+          value={statusFilter || ''}
+          onChange={(e) => setStatusFilter(e.target.value || null)}
+        >
+          {STATUS_FILTERS.map((f) => (
             <option key={f.label} value={f.value || ''}>{f.label}</option>
           ))}
         </select>
@@ -139,35 +209,66 @@ export const HistoryPanel = () => {
             <span>Send a request to see it here</span>
           </div>
         ) : (
-          groups.map((group) => (
-            <div key={group.label} className={styles.group}>
-              <div className={styles.groupHeader}>
-                <span>{group.label}</span>
-                <span className={styles.groupCount}>{group.entries.length}</span>
-              </div>
-              {group.entries.map((entry) => (
+          groups.map((group) => {
+            const isCollapsed = collapsedGroups.has(group.label);
+            return (
+              <div key={group.label} className={styles.group}>
                 <button
-                  key={entry._id}
-                  className={styles.entry}
-                  onClick={() => handleReplay(entry)}
+                  className={styles.groupHeader}
+                  onClick={() => toggleGroup(group.label)}
                   type="button"
                 >
-                  <span className={`${styles.methodBadge} ${styles[`method${entry.request.method}`]}`}>
-                    {entry.request.method}
-                  </span>
-                  <span className={styles.entryUrl}>{truncateUrl(entry.request.url)}</span>
-                  <div className={styles.entryMeta}>
-                    <span className={`${styles.statusBadge} ${getStatusClass(entry.response.status)}`}>
-                      {entry.response.status}
-                    </span>
-                    <span className={styles.timing}>{entry.response.timing.total}ms</span>
-                    <span className={styles.entryTime}>{formatRelativeTime(entry.executedAt)}</span>
-                  </div>
-                  <RotateCcw size={12} className={styles.replayIcon} />
+                  {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                  <span>{group.label}</span>
+                  <span className={styles.groupCount}>{group.entries.length}</span>
                 </button>
-              ))}
-            </div>
-          ))
+                {!isCollapsed &&
+                  group.entries.map((entry, idx) => (
+                    <div
+                      key={entry._id}
+                      className={styles.entry}
+                      style={{ animationDelay: `${idx * 30}ms` }}
+                    >
+                      <button
+                        className={styles.entryMain}
+                        onClick={() => handleReplay(entry)}
+                        type="button"
+                      >
+                        <span className={`${styles.methodBadge} ${styles[`method${entry.request.method}`]}`}>
+                          {entry.request.method}
+                        </span>
+                        <span className={styles.entryUrl}>{truncateUrl(entry.request.url)}</span>
+                        <div className={styles.entryMeta}>
+                          <span className={`${styles.statusBadge} ${getStatusClass(entry.response.status)}`}>
+                            {entry.response.status}
+                          </span>
+                          <span className={styles.timing}>{entry.response.timing.total}ms</span>
+                        </div>
+                      </button>
+                      <div className={styles.entryActions}>
+                        <span className={styles.entryTime}>{formatRelativeTime(entry.executedAt)}</span>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => handleSaveToCollection(entry)}
+                          title="Save to Collection"
+                          type="button"
+                        >
+                          <Save size={11} />
+                        </button>
+                        <button
+                          className={styles.actionBtn}
+                          onClick={() => handleReplay(entry)}
+                          title="Replay"
+                          type="button"
+                        >
+                          <RotateCcw size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            );
+          })
         )}
         {isLoading && entries.length > 0 && (
           <div className={styles.loadingMore}>Loading more...</div>

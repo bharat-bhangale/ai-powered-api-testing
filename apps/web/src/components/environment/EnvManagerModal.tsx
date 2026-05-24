@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { X, Plus, Trash2, Eye, EyeOff, Star } from 'lucide-react';
 import { useEnvironmentStore, type EnvironmentVariable, type EnvironmentData } from '@/stores/environmentStore';
 import { apiClient } from '@/services/api';
 import { toast } from 'sonner';
@@ -117,6 +117,18 @@ export const EnvManagerModal = ({ onClose }: EnvManagerModalProps) => {
     }
   }, [deleteEnvironment, selectedEnvId]);
 
+  // Set as default
+  const handleSetDefault = useCallback(async () => {
+    if (!selectedEnvId) return;
+    try {
+      await apiClient.patch(`/api/environments/${selectedEnvId}/default`);
+      toast.success('Default environment set');
+      await fetchEnvironments();
+    } catch {
+      toast.error('Failed to set default');
+    }
+  }, [selectedEnvId, fetchEnvironments]);
+
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -145,7 +157,10 @@ export const EnvManagerModal = ({ onClose }: EnvManagerModalProps) => {
                   className={`${styles.envRow} ${env._id === selectedEnvId ? styles.envRowActive : ''}`}
                   onClick={() => setSelectedEnvId(env._id)}
                 >
-                  <span className={styles.envRowName}>{env.name}</span>
+                  <span className={styles.envRowName}>
+                    {env.name}
+                    {env.isDefault && <Star size={10} className={styles.defaultBadge} />}
+                  </span>
                   <button
                     className={styles.envDeleteBtn}
                     onClick={(e) => {
@@ -240,6 +255,15 @@ export const EnvManagerModal = ({ onClose }: EnvManagerModalProps) => {
                 </button>
 
                 <div className={styles.saveRow}>
+                  <button
+                    className={styles.setDefaultBtn}
+                    onClick={handleSetDefault}
+                    type="button"
+                    title="Set as default environment"
+                  >
+                    <Star size={13} />
+                    Set as Default
+                  </button>
                   <button
                     className={styles.saveBtn}
                     onClick={handleSave}
