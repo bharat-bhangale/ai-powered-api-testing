@@ -3,15 +3,17 @@ import { ExecutorService } from './executor.service';
 import { VariableResolver } from './variable-resolver';
 import { AuthResolver } from './auth-resolver';
 import { EnvironmentService } from '../environments/environment.service';
+import { HistoryService } from '../history/history.service';
 
 const executorService = new ExecutorService();
 const environmentService = new EnvironmentService();
 const authResolver = new AuthResolver();
+const historyService = new HistoryService();
 
 /**
  * POST /api/execute
  * Receives request config from the frontend, resolves variables + auth,
- * executes the HTTP call, and returns the structured result.
+ * executes the HTTP call, auto-saves to history, and returns the structured result.
  */
 export async function executeRequest(req: Request, res: Response): Promise<void> {
   try {
@@ -31,8 +33,11 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
 
     // ===== Resolve variables from active environment =====
     let variables: Record<string, string> = {};
+    let environmentName: string | undefined;
     if (environmentId && req.userId) {
       variables = await environmentService.getVariables(req.userId, environmentId);
+      const env = await environmentService.getById(req.userId, environmentId);
+      environmentName = env?.name;
     }
     const resolver = new VariableResolver(variables);
 
@@ -79,6 +84,21 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
       body: parsedBody,
       timeout,
     });
+
+    // ===== Auto-save to history (fire-and-forget) =====
+    if (req.userId) {
+      historyService.create({
+        userId: req.userId as unknown as import('mongoose').Types.ObjectId,
+        request: {
+          method,
+          url: resolvedUrl,
+          headers: headerObj,
+          body: parsedBody,
+        },
+        response: result.response,
+        environmentName,
+      }).catch((err: unknown) => console.error('Failed to save history:', err));
+    }
 
     res.json(result);
   } catch (error: unknown) {

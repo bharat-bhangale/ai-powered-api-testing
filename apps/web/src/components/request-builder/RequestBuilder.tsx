@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Save } from 'lucide-react';
+import { Save, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRequestStore } from '@/stores/requestStore';
 import { useCollectionStore } from '@/stores/collectionStore';
@@ -10,6 +10,7 @@ import { UrlBar } from './UrlBar';
 import { RequestPanel } from './RequestPanel';
 import { SaveModal } from './SaveModal';
 import { ResponseViewer } from '@/components/response-viewer/ResponseViewer';
+import { generateCurl } from '@/utils/curl-generator';
 import styles from './RequestBuilder.module.css';
 
 /**
@@ -42,10 +43,17 @@ export const RequestBuilder = () => {
 
     setLoading(activeTab.id, true);
 
+    // Auto-prepend https:// if no protocol specified
+    let requestUrl = activeTab.url.trim();
+    if (requestUrl && !requestUrl.match(/^https?:\/\//i)) {
+      requestUrl = `https://${requestUrl}`;
+      updateUrl(requestUrl);
+    }
+
     try {
       const res = await apiClient.post('/api/execute', {
         method: activeTab.method,
-        url: activeTab.url,
+        url: requestUrl,
         headers: activeTab.headers,
         params: activeTab.params,
         body: activeTab.body,
@@ -105,17 +113,39 @@ export const RequestBuilder = () => {
     }
   }, [activeTab, markSaved, fetchCollections]);
 
-  // Ctrl+S keyboard shortcut
+  // Copy as cURL
+  const handleCopyCurl = useCallback(() => {
+    if (!activeTab) return;
+    const curl = generateCurl({
+      method: activeTab.method,
+      url: activeTab.url,
+      headers: activeTab.headers,
+      params: activeTab.params,
+      body: activeTab.body,
+      auth: activeTab.auth,
+    });
+    navigator.clipboard.writeText(curl).then(() => {
+      toast.success('cURL copied to clipboard');
+    }).catch(() => {
+      toast.error('Failed to copy to clipboard');
+    });
+  }, [activeTab]);
+
+  // Ctrl+S and Ctrl+Shift+C shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         handleSave();
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        handleCopyCurl();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave]);
+  }, [handleSave, handleCopyCurl]);
 
   if (!activeTab) return null;
 
@@ -145,6 +175,14 @@ export const RequestBuilder = () => {
             >
               <Save size={16} />
               {activeTab.isDirty && <span className={styles.dirtyDot} />}
+            </button>
+            <button
+              className={styles.saveButton}
+              onClick={handleCopyCurl}
+              title="Copy as cURL (Ctrl+Shift+C)"
+              type="button"
+            >
+              <Copy size={15} />
             </button>
           </div>
 

@@ -41,16 +41,18 @@ import authRoutes from './modules/auth/auth.routes';
 import collectionRoutes from './modules/collections/collection.routes';
 import requestRoutes from './modules/requests/request.routes';
 import environmentRoutes from './modules/environments/environment.routes';
+import historyRoutes from './modules/history/history.routes';
+import importRoutes from './modules/import/import.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/collections', collectionRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/environments', environmentRoutes);
+app.use('/api/history', historyRoutes);
+app.use('/api/import', importRoutes);
 
 // Future routes:
-// app.use('/api/history', historyRoutes);
-// app.use('/api/import', importRoutes);
 // app.use('/api/ai', aiRoutes);
 
 // ===== 404 Handler =====
