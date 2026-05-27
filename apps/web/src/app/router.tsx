@@ -9,6 +9,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
+import { OfflineBanner } from '@/components/common/OfflineBanner/OfflineBanner';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import styles from './router.module.css';
 
@@ -70,6 +71,7 @@ const MainApp = () => {
 
   return (
     <div className={styles.appLayout}>
+      <OfflineBanner />
       <TopBar />
       <div className={styles.mainContent}>
         <Sidebar />

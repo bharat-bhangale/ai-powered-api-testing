@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { useTheme } from '@/hooks/useTheme';
 import { ErrorBoundary } from './ErrorBoundary';
 import { AppRouter } from './router';
 
@@ -14,7 +15,13 @@ const queryClient = new QueryClient({
   },
 });
 
+/**
+ * Root application component — wraps everything in ErrorBoundary,
+ * QueryClientProvider, BrowserRouter, and Toaster (theme-aware).
+ */
 export const App = () => {
+  const { resolvedTheme } = useTheme();
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -22,6 +29,7 @@ export const App = () => {
           <AppRouter />
           <Toaster
             position="bottom-right"
+            theme={resolvedTheme}
             toastOptions={{
               duration: 3000,
               style: {
@@ -31,6 +39,9 @@ export const App = () => {
                 fontSize: 'var(--text-sm)',
               },
             }}
+            richColors
+            closeButton
+            visibleToasts={3}
           />
         </BrowserRouter>
       </QueryClientProvider>

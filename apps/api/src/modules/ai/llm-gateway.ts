@@ -79,7 +79,6 @@ export class LLMGateway {
       ],
       temperature: params.temperature ?? 0.2,
       max_tokens: params.maxTokens || 4000,
-      // @ts-expect-error — zodResponseFormat creates excessively deep type instantiation with Zod v3 + OpenAI v6
       response_format: zodResponseFormat(schema, params.schemaName),
     });
 

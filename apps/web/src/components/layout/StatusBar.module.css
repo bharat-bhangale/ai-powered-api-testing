@@ -21,7 +21,14 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-success);
+  flex-shrink: 0;
+}
+.connected { background: var(--color-success); }
+.disconnected { background: var(--color-error); animation: pulse 2s ease-in-out infinite; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .divider {
@@ -34,7 +41,7 @@
 .right {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .shortcut {

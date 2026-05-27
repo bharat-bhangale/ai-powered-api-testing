@@ -14,6 +14,12 @@ interface ExecuteRequestParams {
  * The backend makes the actual HTTP call (avoids CORS issues).
  */
 export async function executeRequest(config: ExecuteRequestParams): Promise<ExecutionResponse> {
-  const response = await apiClient.post<ExecutionResponse>('/api/execute', config);
+  // Auto-prepend https:// if no protocol specified
+  let url = config.url.trim();
+  if (url && !/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+
+  const response = await apiClient.post<ExecutionResponse>('/api/execute', { ...config, url });
   return response.data;
 }
