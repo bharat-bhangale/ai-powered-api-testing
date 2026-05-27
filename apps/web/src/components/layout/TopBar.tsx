@@ -1,12 +1,15 @@
-import { Zap, Moon, Sun, Monitor } from 'lucide-react';
+import { Zap, Moon, Sun, Monitor, Sparkles } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
+import { useAIStore } from '@/stores/aiStore';
 import styles from './TopBar.module.css';
 
 /**
- * Application top bar — logo, app name, and theme toggle.
+ * Application top bar — logo, app name, AI toggle, and theme toggle.
  */
 export const TopBar = () => {
   const { theme, setTheme } = useTheme();
+  const togglePanel = useAIStore((s) => s.togglePanel);
+  const isPanelOpen = useAIStore((s) => s.isPanelOpen);
 
   const cycleTheme = () => {
     const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
@@ -28,6 +31,15 @@ export const TopBar = () => {
       </div>
 
       <div className={styles.right}>
+        <button
+          id="ai-toggle-button"
+          className={`${styles.aiButton} ${isPanelOpen ? styles.aiButtonActive : ''}`}
+          onClick={togglePanel}
+          title="AI Assistant (Ctrl+Shift+I)"
+          type="button"
+        >
+          <Sparkles size={15} />
+        </button>
         <button
           className={styles.themeButton}
           onClick={cycleTheme}

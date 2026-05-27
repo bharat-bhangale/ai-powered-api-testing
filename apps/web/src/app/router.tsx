@@ -8,6 +8,7 @@ import { RequestBuilder } from '@/components/request-builder/RequestBuilder';
 import { TopBar } from '@/components/layout/TopBar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Sidebar } from '@/components/sidebar/Sidebar';
+import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import styles from './router.module.css';
 
@@ -75,6 +76,7 @@ const MainApp = () => {
         <main className={styles.workArea}>
           <RequestBuilder />
         </main>
+        <AIChatPanel />
       </div>
       <StatusBar />
     </div>

@@ -17,6 +17,23 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Meta Row — response info + AI action buttons */
+.metaRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+.aiActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  flex-shrink: 0;
+}
+
+
 /* Loading */
 .loading {
   padding: var(--space-4);

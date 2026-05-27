@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { EnvSelector } from '@/components/environment/EnvSelector';
 import { EnvManagerModal } from '@/components/environment/EnvManagerModal';
+import { AIUsageIndicator } from '@/components/ai/AIUsageIndicator';
 import styles from './StatusBar.module.css';
 
 /**
- * Bottom status bar — shows connection status, environment selector, and keyboard shortcut hints.
+ * Bottom status bar — shows connection status, environment selector,
+ * AI usage indicator, and keyboard shortcut hints.
  */
 export const StatusBar = () => {
   const [showEnvManager, setShowEnvManager] = useState(false);
@@ -17,6 +19,8 @@ export const StatusBar = () => {
           <span>Ready</span>
           <span className={styles.divider} />
           <EnvSelector onManage={() => setShowEnvManager(true)} />
+          <span className={styles.divider} />
+          <AIUsageIndicator />
         </div>
         <div className={styles.right}>
           <span className={styles.shortcut}>
@@ -26,7 +30,7 @@ export const StatusBar = () => {
             <kbd>Ctrl</kbd>+<kbd>S</kbd> Save
           </span>
           <span className={styles.shortcut}>
-            <kbd>Ctrl</kbd>+<kbd>N</kbd> New Tab
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>I</kbd> AI
           </span>
         </div>
       </footer>

@@ -1,0 +1,25 @@
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+  cursor: default;
+  transition: all var(--transition-fast);
+}
+
+.green {
+  color: var(--color-success);
+  background: hsla(142, 70%, 49%, 0.1);
+}
+.yellow {
+  color: var(--color-warning);
+  background: hsla(38, 92%, 50%, 0.1);
+}
+.red {
+  color: var(--color-error);
+  background: hsla(0, 84%, 60%, 0.1);
+}

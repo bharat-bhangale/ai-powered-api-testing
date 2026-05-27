@@ -43,6 +43,7 @@ import requestRoutes from './modules/requests/request.routes';
 import environmentRoutes from './modules/environments/environment.routes';
 import historyRoutes from './modules/history/history.routes';
 import importRoutes from './modules/import/import.routes';
+import aiRoutes from './modules/ai/ai.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -51,9 +52,7 @@ app.use('/api/requests', requestRoutes);
 app.use('/api/environments', environmentRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/import', importRoutes);
-
-// Future routes:
-// app.use('/api/ai', aiRoutes);
+app.use('/api/ai', aiRoutes);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {

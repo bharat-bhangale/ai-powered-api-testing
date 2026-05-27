@@ -3,6 +3,8 @@ import type { ExecutionResponse } from '@/stores/requestStore';
 import { ResponseMeta } from './ResponseMeta';
 import { ResponseBody } from './ResponseBody';
 import { ResponseHeaders } from './ResponseHeaders';
+import { AITestSuggestions } from '@/components/ai/AITestSuggestions';
+import { AIDebugPanel } from '@/components/ai/AIDebugPanel';
 import styles from './ResponseViewer.module.css';
 
 type ResponseTab = 'body' | 'headers' | 'cookies';
@@ -13,7 +15,8 @@ interface ResponseViewerProps {
 }
 
 /**
- * Response viewer panel — shows status, timing, size, and tabbed content.
+ * Response viewer panel — shows status, timing, size, tabbed content,
+ * plus AI Generate Tests and AI Debug buttons.
  */
 export const ResponseViewer = ({ response, isLoading }: ResponseViewerProps) => {
   const [activeTab, setActiveTab] = useState<ResponseTab>('body');
@@ -71,13 +74,19 @@ export const ResponseViewer = ({ response, isLoading }: ResponseViewerProps) => 
 
   return (
     <div className={`${styles.container} ${styles.hasResponse}`}>
-      {/* Response meta (status, time, size) */}
-      <ResponseMeta
-        status={resp.status}
-        statusText={resp.statusText}
-        time={resp.timing.total}
-        size={resp.size}
-      />
+      {/* Response meta (status, time, size) + AI action buttons */}
+      <div className={styles.metaRow}>
+        <ResponseMeta
+          status={resp.status}
+          statusText={resp.statusText}
+          time={resp.timing.total}
+          size={resp.size}
+        />
+        <div className={styles.aiActions}>
+          <AITestSuggestions />
+          <AIDebugPanel />
+        </div>
+      </div>
 
       {/* Tab bar */}
       <div className={styles.tabBar}>

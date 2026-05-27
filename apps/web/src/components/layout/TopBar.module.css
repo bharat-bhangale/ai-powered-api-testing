@@ -64,3 +64,33 @@
   color: var(--color-text-primary);
   border-color: var(--color-border-hover);
 }
+
+.aiButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.aiButton:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+}
+.aiButtonActive {
+  background: linear-gradient(135deg, hsl(271, 76%, 53%), hsl(330, 80%, 55%));
+  border-color: transparent;
+  color: white;
+}
+.aiButtonActive:hover {
+  filter: brightness(1.1);
+  background: linear-gradient(135deg, hsl(271, 76%, 53%), hsl(330, 80%, 55%));
+  color: white;
+  border-color: transparent;
+}
