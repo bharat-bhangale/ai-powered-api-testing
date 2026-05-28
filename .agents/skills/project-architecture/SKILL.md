@@ -10,7 +10,7 @@ description: "Core project architecture knowledge. Use when making any architect
 - **Frontend:** React 19, Vite 6, TypeScript strict
 - **Backend:** Express 5, TypeScript strict, Mongoose 8
 - **Database:** MongoDB Atlas (Mongoose ODM)
-- **AI:** OpenAI GPT-4o-mini via structured outputs (Zod + zodResponseFormat)
+- **AI:** Google Gemini API via structured JSON responses validated with Zod
 - **State:** Zustand (client), TanStack Query (server)
 - **Styling:** CSS Modules + CSS Variables (NO Tailwind)
 

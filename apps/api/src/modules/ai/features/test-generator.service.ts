@@ -34,7 +34,6 @@ export class TestGeneratorService {
       responseSchema: TestSuiteSchema,
       schemaName: 'test_suite',
       temperature: 0.2,
-      model: 'gpt-4o-mini',
     });
 
     return result.parsed;

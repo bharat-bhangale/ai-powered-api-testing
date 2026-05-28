@@ -37,7 +37,7 @@ app.get('/health', (_req, res) => {
 });
 
 // ===== API Routes =====
-import executorRoutes from './modules/executor/executor.routes';
+import { executorRoutes } from './modules/executor/executor.routes';
 import authRoutes from './modules/auth/auth.routes';
 import collectionRoutes from './modules/collections/collection.routes';
 import requestRoutes from './modules/requests/request.routes';

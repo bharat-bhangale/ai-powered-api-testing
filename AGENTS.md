@@ -21,7 +21,7 @@ SPA monorepo: React 19 + Vite 6 frontend, Express 5 + TypeScript backend, MongoD
 
 - **Frontend state:** Zustand (client/UI state) + TanStack Query (server/API state)
 - **Auth:** JWT access tokens (15 min) + HTTP-only refresh cookies (7 days)
-- **AI:** OpenAI structured outputs with Zod schemas via `zodResponseFormat`
+- **AI:** Google Gemini API structured JSON responses validated with Zod schemas
 - **Executor:** Server-side proxy (solves CORS) with SSRF guard
 - **Database:** MongoDB Atlas with Mongoose ODM
 

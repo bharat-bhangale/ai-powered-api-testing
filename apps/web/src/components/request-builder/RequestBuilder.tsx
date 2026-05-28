@@ -5,6 +5,7 @@ import { useRequestStore } from '@/stores/requestStore';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useEnvironmentStore } from '@/stores/environmentStore';
 import { apiClient } from '@/services/api';
+import { executeRequest as executeRequestService } from '@/services/executor.service';
 import { RequestTabs } from './RequestTabs';
 import { UrlBar } from './UrlBar';
 import { RequestPanel } from './RequestPanel';
@@ -51,7 +52,7 @@ export const RequestBuilder = () => {
     }
 
     try {
-      const res = await apiClient.post('/api/execute', {
+      const result = await executeRequestService({
         method: activeTab.method,
         url: requestUrl,
         headers: activeTab.headers,
@@ -60,7 +61,7 @@ export const RequestBuilder = () => {
         auth: activeTab.auth,
         environmentId: useEnvironmentStore.getState().activeEnvironmentId,
       });
-      setResponse(activeTab.id, res.data.data);
+      setResponse(activeTab.id, result);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Request failed';
       toast.error(message);

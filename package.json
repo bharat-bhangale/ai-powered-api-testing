@@ -17,7 +17,7 @@
     "build:api": "npm run build -w apps/api",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "type-check": "tsc -b",
+    "type-check": "tsc -b packages/shared packages/utils apps/api apps/web",
     "test": "vitest run",
     "test:watch": "vitest"
   },

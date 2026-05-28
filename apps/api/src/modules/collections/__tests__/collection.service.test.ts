@@ -8,8 +8,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ===== Mocks =====
 
-const mockCollectionSave = vi.fn();
-const mockCollectionLean = vi.fn();
+const { mockCollectionSave, mockCollectionLean } = vi.hoisted(() => ({
+  mockCollectionSave: vi.fn(),
+  mockCollectionLean: vi.fn(),
+}));
 
 vi.mock('../../../models/Collection.model', () => ({
   Collection: {

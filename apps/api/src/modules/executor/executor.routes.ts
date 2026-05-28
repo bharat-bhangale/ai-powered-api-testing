@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { executeRequest } from './executor.controller';
 import { authenticate } from '../../middleware/authenticate';
+import { validate } from '../../middleware/validate';
+import { executeRequestSchema } from './executor.validation';
 
 const router = Router();
 
@@ -9,6 +11,6 @@ const router = Router();
  * Executes an HTTP request on behalf of the user (proxy to avoid CORS).
  * Requires authentication.
  */
-router.post('/execute', authenticate, executeRequest);
+router.post('/execute', authenticate, validate(executeRequestSchema), executeRequest);
 
-export default router;
+export const executorRoutes = router;

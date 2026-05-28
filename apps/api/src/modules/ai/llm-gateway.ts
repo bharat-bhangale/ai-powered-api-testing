@@ -1,6 +1,12 @@
-import OpenAI from 'openai';
 import { z } from 'zod';
-import { zodResponseFormat } from 'openai/helpers/zod';
+import {
+  GoogleGenAI,
+  Type,
+  type GenerateContentConfig,
+  type GenerateContentResponse,
+  type Schema,
+} from '@google/genai';
+import { env } from '../../config/env';
 
 // ===== Types =====
 
@@ -26,42 +32,42 @@ export interface CompletionResult {
 // ===== LLM Gateway =====
 
 /**
- * Provider-agnostic LLM gateway. Wraps OpenAI client with three modes:
+ * Provider-agnostic LLM gateway. Wraps Gemini with three modes:
  * - complete():           Standard text completion
- * - completeStructured(): Structured output enforced by Zod schema
+ * - completeStructured(): Structured output requested from Gemini and validated with Zod
  * - stream():            Streaming completion yielding token chunks
  *
- * Feature services call gateway methods — only the constructor knows about OpenAI.
+ * Feature services call gateway methods — only this class knows about Gemini.
  */
 export class LLMGateway {
-  private openai: OpenAI;
+  private gemini: GoogleGenAI | null = null;
 
-  constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+  private getGeminiClient(): GoogleGenAI {
+    if (!env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is required to use AI features');
+    }
+
+    this.gemini ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    return this.gemini;
+  }
+
+  private getModel(model?: string): string {
+    return model || env.GEMINI_MODEL;
   }
 
   /** Standard text completion */
   async complete(params: CompletionParams): Promise<CompletionResult> {
-    const response = await this.openai.chat.completions.create({
-      model: params.model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-      temperature: params.temperature ?? 0.3,
-      max_tokens: params.maxTokens || 4000,
+    const model = this.getModel(params.model);
+    const response = await this.getGeminiClient().models.generateContent({
+      model,
+      contents: params.userPrompt,
+      config: buildGenerationConfig(params, 0.3),
     });
 
     return {
-      content: response.choices[0]?.message?.content || '',
-      usage: {
-        promptTokens: response.usage?.prompt_tokens || 0,
-        completionTokens: response.usage?.completion_tokens || 0,
-        totalTokens: response.usage?.total_tokens || 0,
-      },
-      model: response.model,
+      content: response.text || '',
+      usage: mapGeminiUsage(response),
+      model: response.modelVersion || model,
     };
   }
 
@@ -69,55 +75,178 @@ export class LLMGateway {
   async completeStructured<T>(
     params: CompletionParams & { responseSchema: z.ZodType<T>; schemaName: string },
   ): Promise<CompletionResult & { parsed: T }> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const schema = params.responseSchema as z.ZodType<any, any, any>;
-    const response = await this.openai.chat.completions.parse({
-      model: params.model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-      temperature: params.temperature ?? 0.2,
-      max_tokens: params.maxTokens || 4000,
-      response_format: zodResponseFormat(schema, params.schemaName),
+    const model = this.getModel(params.model);
+    const responseSchema = zodToGeminiSchema(params.responseSchema);
+    responseSchema.title ??= params.schemaName;
+
+    const response = await this.getGeminiClient().models.generateContent({
+      model,
+      contents: params.userPrompt,
+      config: {
+        ...buildGenerationConfig(params, 0.2),
+        responseMimeType: 'application/json',
+        responseSchema,
+      },
     });
 
-    const parsed = response.choices[0]?.message?.parsed as T | undefined;
-    if (!parsed) {
+    const rawJson = parseJsonResponse(response.text || '');
+    const parsed = params.responseSchema.safeParse(rawJson);
+
+    if (!parsed.success) {
       throw new Error('AI response could not be parsed into the expected format');
     }
 
     return {
-      content: JSON.stringify(parsed),
-      parsed,
-      usage: {
-        promptTokens: response.usage?.prompt_tokens || 0,
-        completionTokens: response.usage?.completion_tokens || 0,
-        totalTokens: response.usage?.total_tokens || 0,
-      },
-      model: response.model,
+      content: JSON.stringify(parsed.data),
+      parsed: parsed.data,
+      usage: mapGeminiUsage(response),
+      model: response.modelVersion || model,
     };
   }
 
   /** Streaming completion — yields content chunks as they arrive */
   async *stream(params: CompletionParams): AsyncIterable<string> {
-    const stream = await this.openai.chat.completions.create({
-      model: params.model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: params.systemPrompt },
-        { role: 'user', content: params.userPrompt },
-      ],
-      temperature: params.temperature ?? 0.5,
-      max_tokens: params.maxTokens || 4000,
-      stream: true,
+    const stream = await this.getGeminiClient().models.generateContentStream({
+      model: this.getModel(params.model),
+      contents: params.userPrompt,
+      config: buildGenerationConfig(params, 0.5),
     });
 
     for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) yield content;
+      if (chunk.text) yield chunk.text;
     }
   }
 }
 
 /** Singleton gateway instance — reused across all AI features */
 export const llmGateway = new LLMGateway();
+
+function buildGenerationConfig(
+  params: CompletionParams,
+  defaultTemperature: number,
+): GenerateContentConfig {
+  return {
+    systemInstruction: params.systemPrompt,
+    temperature: params.temperature ?? defaultTemperature,
+    maxOutputTokens: params.maxTokens || 4000,
+  };
+}
+
+function mapGeminiUsage(response: GenerateContentResponse): CompletionResult['usage'] {
+  const usage = response.usageMetadata;
+
+  return {
+    promptTokens: usage?.promptTokenCount || 0,
+    completionTokens: usage?.candidatesTokenCount || 0,
+    totalTokens: usage?.totalTokenCount || 0,
+  };
+}
+
+function parseJsonResponse(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error('AI response could not be parsed into the expected format');
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const fencedJson = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (!fencedJson?.[1]) {
+      throw new Error('AI response could not be parsed into the expected format');
+    }
+
+    try {
+      return JSON.parse(fencedJson[1].trim());
+    } catch {
+      throw new Error('AI response could not be parsed into the expected format');
+    }
+  }
+}
+
+function zodToGeminiSchema(schema: z.ZodType<unknown>): Schema {
+  const { schema: baseSchema, nullable, description } = unwrapZodSchema(schema);
+  const withMeta = (geminiSchema: Schema): Schema => ({
+    ...geminiSchema,
+    ...(description ? { description } : {}),
+    ...(nullable ? { nullable: true } : {}),
+  });
+
+  if (baseSchema instanceof z.ZodObject) {
+    const shape = baseSchema.shape as Record<string, z.ZodType<unknown>>;
+    const properties: Record<string, Schema> = {};
+    const required: string[] = [];
+
+    Object.entries(shape).forEach(([key, value]) => {
+      properties[key] = zodToGeminiSchema(value);
+      if (!unwrapZodSchema(value).optional) {
+        required.push(key);
+      }
+    });
+
+    return withMeta({
+      type: Type.OBJECT,
+      properties,
+      ...(required.length > 0 ? { required } : {}),
+      propertyOrdering: Object.keys(properties),
+    });
+  }
+
+  if (baseSchema instanceof z.ZodArray) {
+    const arraySchema = baseSchema as z.ZodArray<z.ZodType<unknown>>;
+    return withMeta({
+      type: Type.ARRAY,
+      items: zodToGeminiSchema(arraySchema.element),
+    });
+  }
+
+  if (baseSchema instanceof z.ZodEnum) {
+    return withMeta({
+      type: Type.STRING,
+      format: 'enum',
+      enum: [...baseSchema.options],
+    });
+  }
+
+  if (baseSchema instanceof z.ZodString) {
+    return withMeta({ type: Type.STRING });
+  }
+
+  if (baseSchema instanceof z.ZodNumber) {
+    return withMeta({ type: baseSchema.isInt ? Type.INTEGER : Type.NUMBER });
+  }
+
+  if (baseSchema instanceof z.ZodBoolean) {
+    return withMeta({ type: Type.BOOLEAN });
+  }
+
+  return withMeta({ type: Type.STRING });
+}
+
+function unwrapZodSchema(schema: z.ZodType<unknown>): {
+  schema: z.ZodType<unknown>;
+  optional: boolean;
+  nullable: boolean;
+  description?: string;
+} {
+  let current = schema;
+  let optional = false;
+  let nullable = false;
+
+  while (current instanceof z.ZodOptional || current instanceof z.ZodNullable) {
+    if (current instanceof z.ZodOptional) {
+      optional = true;
+      current = current.unwrap();
+    } else {
+      nullable = true;
+      current = current.unwrap();
+    }
+  }
+
+  return {
+    schema: current,
+    optional,
+    nullable,
+    description: schema.description || current.description,
+  };
+}

@@ -1,5 +1,11 @@
 import { apiClient } from './api';
-import type { RequestBodyConfig, KeyValuePair, ExecutionResponse } from '@/stores/requestStore';
+import type { ApiResponse } from '@shared/types/api.types';
+import type {
+  AuthConfig,
+  RequestBodyConfig,
+  KeyValuePair,
+  ExecutionResponse,
+} from '@/stores/requestStore';
 
 interface ExecuteRequestParams {
   method: string;
@@ -7,6 +13,9 @@ interface ExecuteRequestParams {
   headers: KeyValuePair[];
   params: KeyValuePair[];
   body: RequestBodyConfig;
+  auth: AuthConfig;
+  environmentId?: string | null;
+  timeout?: number;
 }
 
 /**
@@ -20,6 +29,14 @@ export async function executeRequest(config: ExecuteRequestParams): Promise<Exec
     url = `https://${url}`;
   }
 
-  const response = await apiClient.post<ExecutionResponse>('/api/execute', { ...config, url });
-  return response.data;
+  const response = await apiClient.post<ApiResponse<ExecutionResponse>>('/api/execute', {
+    ...config,
+    url,
+  });
+
+  if (!response.data.success) {
+    throw new Error(response.data.error.message);
+  }
+
+  return response.data.data;
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, type ChangeEvent, type KeyboardEvent } from 'react';
 import { useEnvironmentStore } from '@/stores/environmentStore';
 import styles from './VariableInput.module.css';
 
@@ -38,13 +38,28 @@ export const VariableInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const variableNames = useEnvironmentStore((s) => s.getVariableNames());
-  const activeVars = useEnvironmentStore((s) => s.getActiveVariables());
+  const environments = useEnvironmentStore((s) => s.environments);
+  const activeEnvironmentId = useEnvironmentStore((s) => s.activeEnvironmentId);
+
+  const { variableNames, activeVars } = useMemo(() => {
+    const env = environments.find((e) => e._id === activeEnvironmentId);
+    if (!env) return { variableNames: [], activeVars: {} as Record<string, string> };
+
+    const vars: Record<string, string> = {};
+    const names: string[] = [];
+    env.variables.forEach((v) => {
+      vars[v.key] = v.value;
+      names.push(v.key);
+    });
+    return { variableNames: names, activeVars: vars };
+  }, [environments, activeEnvironmentId]);
 
   // Build suggestions list
-  const suggestions: Suggestion[] = variableNames
-    .filter((name) => name.toLowerCase().includes(filter.toLowerCase()))
-    .map((name) => ({ name, value: activeVars[name] || '' }));
+  const suggestions: Suggestion[] = useMemo(() => {
+    return variableNames
+      .filter((name) => name.toLowerCase().includes(filter.toLowerCase()))
+      .map((name) => ({ name, value: activeVars[name] || '' }));
+  }, [variableNames, filter, activeVars]);
 
   // Detect {{ pattern in input
   const handleChange = useCallback(

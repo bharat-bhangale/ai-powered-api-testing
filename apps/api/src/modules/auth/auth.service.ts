@@ -61,18 +61,19 @@ export class AuthService {
   async refreshTokens(
     refreshToken: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
+    let decoded: { userId: string };
     try {
-      const decoded = jwt.verify(refreshToken, env.REFRESH_TOKEN_SECRET) as {
-        userId: string;
-      };
-      const user = await User.findById(decoded.userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
-      return this.generateTokens(user._id.toString());
+      decoded = jwt.verify(refreshToken, env.REFRESH_TOKEN_SECRET) as { userId: string };
     } catch {
       throw new Error('Invalid refresh token');
     }
+
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.generateTokens(user._id.toString());
   }
 
   /**

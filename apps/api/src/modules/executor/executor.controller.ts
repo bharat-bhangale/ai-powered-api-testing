@@ -4,6 +4,7 @@ import { VariableResolver } from './variable-resolver';
 import { AuthResolver } from './auth-resolver';
 import { EnvironmentService } from '../environments/environment.service';
 import { HistoryService } from '../history/history.service';
+import type { ExecuteRequestBody } from './executor.validation';
 
 const executorService = new ExecutorService();
 const environmentService = new EnvironmentService();
@@ -17,7 +18,8 @@ const historyService = new HistoryService();
  */
 export async function executeRequest(req: Request, res: Response): Promise<void> {
   try {
-    const { method, url, headers, params, body, auth, environmentId, timeout } = req.body;
+    const { method, url, headers, params, body, auth, environmentId, timeout } =
+      req.body as ExecuteRequestBody;
 
     // Validate required fields
     if (!url || !method) {
@@ -100,7 +102,7 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
       }).catch((err: unknown) => console.error('Failed to save history:', err));
     }
 
-    res.json(result);
+    res.json({ success: true, data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Execution failed';
     res.status(500).json({

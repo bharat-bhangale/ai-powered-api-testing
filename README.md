@@ -27,7 +27,7 @@ An intelligent API testing platform built with React, Express, and AI — like P
 | Styling | CSS Modules + CSS Variables (no Tailwind) |
 | Backend | Express 5, TypeScript |
 | Database | MongoDB Atlas, Mongoose 8 |
-| AI | OpenAI GPT-4o-mini (structured outputs via Zod) |
+| AI | Google Gemini API (`@google/genai`, structured outputs validated with Zod) |
 | Testing | Vitest |
 
 ## 📁 Project Structure
@@ -72,7 +72,7 @@ ai-powered-api-testing/
 
 - Node.js 22+ (LTS)
 - MongoDB Atlas account ([free M0 tier](https://cloud.mongodb.com))
-- OpenAI API key ([platform.openai.com](https://platform.openai.com))
+- Google Gemini API key ([Google AI Studio](https://aistudio.google.com/app/apikey))
 
 ### Installation
 
@@ -92,7 +92,8 @@ MONGODB_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/atx
 ACCESS_TOKEN_SECRET=<generate-64-char-random-string>
 REFRESH_TOKEN_SECRET=<generate-another-64-char-random-string>
 FRONTEND_URL=http://localhost:5173
-OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=<your-gemini-api-key>
+GEMINI_MODEL=gemini-3.5-flash
 NODE_ENV=development
 ```
 
@@ -149,7 +150,8 @@ npx vitest run
 | `ACCESS_TOKEN_SECRET` | ✅ | JWT access token secret (64+ chars) |
 | `REFRESH_TOKEN_SECRET` | ✅ | JWT refresh token secret (64+ chars) |
 | `FRONTEND_URL` | ✅ | Frontend URL for CORS (e.g., `http://localhost:5173`) |
-| `OPENAI_API_KEY` | ✅ | OpenAI API key for AI features |
+| `GEMINI_API_KEY` | ✅ | Google Gemini API key for AI features |
+| `GEMINI_MODEL` | ❌ | Gemini model to use (default: `gemini-3.5-flash`) |
 | `NODE_ENV` | ❌ | `development` or `production` |
 
 ### Frontend (`apps/web/.env`)

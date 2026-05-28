@@ -1,19 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the openai module before importing anything that uses it
-vi.mock('openai', () => {
-  const MockOpenAI = vi.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: vi.fn(),
-        parse: vi.fn(),
-      },
-    },
-  }));
-  return { default: MockOpenAI };
+const geminiMocks = vi.hoisted(() => {
+  process.env.GEMINI_API_KEY = 'test-gemini-key';
+
+  return {
+    generateContent: vi.fn(),
+    generateContentStream: vi.fn(),
+  };
 });
 
-// Must import AFTER mocking
+vi.mock('@google/genai', () => {
+  const MockGoogleGenAI = vi.fn().mockImplementation(() => ({
+    models: {
+      generateContent: geminiMocks.generateContent,
+      generateContentStream: geminiMocks.generateContentStream,
+    },
+  }));
+
+  return {
+    GoogleGenAI: MockGoogleGenAI,
+    Type: {
+      TYPE_UNSPECIFIED: 'TYPE_UNSPECIFIED',
+      STRING: 'STRING',
+      NUMBER: 'NUMBER',
+      INTEGER: 'INTEGER',
+      BOOLEAN: 'BOOLEAN',
+      ARRAY: 'ARRAY',
+      OBJECT: 'OBJECT',
+      NULL: 'NULL',
+    },
+  };
+});
+
 import { LLMGateway } from '../llm-gateway';
 
 describe('LLMGateway', () => {
@@ -25,13 +43,15 @@ describe('LLMGateway', () => {
   });
 
   describe('complete', () => {
-    it('returns content and usage from a standard completion', async () => {
-      // Access the mocked openai instance
-      const openaiInstance = (gateway as any).openai;
-      openaiInstance.chat.completions.create.mockResolvedValue({
-        choices: [{ message: { content: 'Hello world' } }],
-        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
-        model: 'gpt-4o-mini',
+    it('returns content and usage from a standard Gemini completion', async () => {
+      geminiMocks.generateContent.mockResolvedValue({
+        text: 'Hello world',
+        usageMetadata: {
+          promptTokenCount: 10,
+          candidatesTokenCount: 5,
+          totalTokenCount: 15,
+        },
+        modelVersion: 'gemini-3.5-flash',
       });
 
       const result = await gateway.complete({
@@ -39,19 +59,31 @@ describe('LLMGateway', () => {
         userPrompt: 'Say hello',
       });
 
+      expect(geminiMocks.generateContent).toHaveBeenCalledWith({
+        model: 'gemini-3.5-flash',
+        contents: 'Say hello',
+        config: {
+          systemInstruction: 'You are a test assistant',
+          temperature: 0.3,
+          maxOutputTokens: 4000,
+        },
+      });
       expect(result.content).toBe('Hello world');
       expect(result.usage.promptTokens).toBe(10);
       expect(result.usage.completionTokens).toBe(5);
       expect(result.usage.totalTokens).toBe(15);
-      expect(result.model).toBe('gpt-4o-mini');
+      expect(result.model).toBe('gemini-3.5-flash');
     });
 
     it('handles empty response content gracefully', async () => {
-      const openaiInstance = (gateway as any).openai;
-      openaiInstance.chat.completions.create.mockResolvedValue({
-        choices: [{ message: { content: null } }],
-        usage: { prompt_tokens: 5, completion_tokens: 0, total_tokens: 5 },
-        model: 'gpt-4o-mini',
+      geminiMocks.generateContent.mockResolvedValue({
+        text: undefined,
+        usageMetadata: {
+          promptTokenCount: 5,
+          candidatesTokenCount: 0,
+          totalTokenCount: 5,
+        },
+        modelVersion: 'gemini-3.5-flash',
       });
 
       const result = await gateway.complete({
@@ -68,11 +100,14 @@ describe('LLMGateway', () => {
       const { z } = await import('zod');
       const TestSchema = z.object({ name: z.string(), age: z.number() });
 
-      const openaiInstance = (gateway as any).openai;
-      openaiInstance.chat.completions.parse.mockResolvedValue({
-        choices: [{ message: { parsed: { name: 'Alice', age: 30 } } }],
-        usage: { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 },
-        model: 'gpt-4o-mini',
+      geminiMocks.generateContent.mockResolvedValue({
+        text: '{"name":"Alice","age":30}',
+        usageMetadata: {
+          promptTokenCount: 20,
+          candidatesTokenCount: 10,
+          totalTokenCount: 30,
+        },
+        modelVersion: 'gemini-3.5-flash',
       });
 
       const result = await gateway.completeStructured({
@@ -82,19 +117,42 @@ describe('LLMGateway', () => {
         schemaName: 'test_schema',
       });
 
+      expect(geminiMocks.generateContent).toHaveBeenCalledWith({
+        model: 'gemini-3.5-flash',
+        contents: 'user',
+        config: {
+          systemInstruction: 'system',
+          temperature: 0.2,
+          maxOutputTokens: 4000,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            title: 'test_schema',
+            type: 'OBJECT',
+            properties: {
+              name: { type: 'STRING' },
+              age: { type: 'NUMBER' },
+            },
+            required: ['name', 'age'],
+            propertyOrdering: ['name', 'age'],
+          },
+        },
+      });
       expect(result.parsed).toEqual({ name: 'Alice', age: 30 });
       expect(result.usage.totalTokens).toBe(30);
     });
 
-    it('throws when parsing fails (null parsed)', async () => {
+    it('throws when parsing fails', async () => {
       const { z } = await import('zod');
       const TestSchema = z.object({ x: z.string() });
 
-      const openaiInstance = (gateway as any).openai;
-      openaiInstance.chat.completions.parse.mockResolvedValue({
-        choices: [{ message: { parsed: null } }],
-        usage: { prompt_tokens: 5, completion_tokens: 0, total_tokens: 5 },
-        model: 'gpt-4o-mini',
+      geminiMocks.generateContent.mockResolvedValue({
+        text: '{"x": 123}',
+        usageMetadata: {
+          promptTokenCount: 5,
+          candidatesTokenCount: 0,
+          totalTokenCount: 5,
+        },
+        modelVersion: 'gemini-3.5-flash',
       });
 
       await expect(
@@ -109,19 +167,16 @@ describe('LLMGateway', () => {
   });
 
   describe('stream', () => {
-    it('yields content chunks from streaming response', async () => {
-      const openaiInstance = (gateway as any).openai;
-
-      // Simulate an async iterable stream
+    it('yields content chunks from Gemini streaming response', async () => {
       const mockStream = {
         async *[Symbol.asyncIterator]() {
-          yield { choices: [{ delta: { content: 'Hello' } }] };
-          yield { choices: [{ delta: { content: ' World' } }] };
-          yield { choices: [{ delta: { content: '!' } }] };
+          yield { text: 'Hello' };
+          yield { text: ' World' };
+          yield { text: '!' };
         },
       };
 
-      openaiInstance.chat.completions.create.mockResolvedValue(mockStream);
+      geminiMocks.generateContentStream.mockResolvedValue(mockStream);
 
       const chunks: string[] = [];
       for await (const chunk of gateway.stream({
@@ -131,21 +186,28 @@ describe('LLMGateway', () => {
         chunks.push(chunk);
       }
 
+      expect(geminiMocks.generateContentStream).toHaveBeenCalledWith({
+        model: 'gemini-3.5-flash',
+        contents: 'user',
+        config: {
+          systemInstruction: 'system',
+          temperature: 0.5,
+          maxOutputTokens: 4000,
+        },
+      });
       expect(chunks).toEqual(['Hello', ' World', '!']);
     });
 
     it('skips chunks with no content', async () => {
-      const openaiInstance = (gateway as any).openai;
-
       const mockStream = {
         async *[Symbol.asyncIterator]() {
-          yield { choices: [{ delta: { content: 'OK' } }] };
-          yield { choices: [{ delta: {} }] };
-          yield { choices: [{ delta: { content: null } }] };
+          yield { text: 'OK' };
+          yield { text: undefined };
+          yield { text: '' };
         },
       };
 
-      openaiInstance.chat.completions.create.mockResolvedValue(mockStream);
+      geminiMocks.generateContentStream.mockResolvedValue(mockStream);
 
       const chunks: string[] = [];
       for await (const chunk of gateway.stream({
