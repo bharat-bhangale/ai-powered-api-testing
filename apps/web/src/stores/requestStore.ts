@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useTestRunnerStore } from './testRunnerStore';
 
 /**
  * HTTP method type.
@@ -116,6 +117,8 @@ interface RequestStore {
     params?: KeyValuePair[];
     body?: RequestBodyConfig;
     auth?: AuthConfig;
+    testScript?: string;
+    preRequestScript?: string;
   }) => void;
   markSaved: (tabId: string, savedRequestId: string, savedCollectionId: string) => void;
 }
@@ -286,6 +289,14 @@ export const useRequestStore = create<RequestStore>((set) => {
           activeTabId: newTab.id,
         };
       });
+
+      // Load test script into testRunnerStore (outside Zustand set)
+      if (saved.testScript) {
+        useTestRunnerStore.getState().setScript(
+          useRequestStore.getState().tabs.find((t) => t.savedRequestId === saved._id)?.id || '',
+          saved.testScript,
+        );
+      }
     },
 
     markSaved: (tabId, savedRequestId, savedCollectionId) => {

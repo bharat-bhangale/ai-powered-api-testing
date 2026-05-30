@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useRequestStore } from '@/stores/requestStore';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useEnvironmentStore } from '@/stores/environmentStore';
+import { useTestRunnerStore } from '@/stores/testRunnerStore';
 import { apiClient } from '@/services/api';
 import { executeRequest as executeRequestService } from '@/services/executor.service';
 import { RequestTabs } from './RequestTabs';
@@ -11,12 +12,13 @@ import { UrlBar } from './UrlBar';
 import { RequestPanel } from './RequestPanel';
 import { SaveModal } from './SaveModal';
 import { ResponseViewer } from '@/components/response-viewer/ResponseViewer';
+import { TestResultsPanel } from '@/components/test-runner/TestResultsPanel';
 import { generateCurl } from '@/utils/curl-generator';
 import styles from './RequestBuilder.module.css';
 
 /**
  * Main request builder — the core UI of the application.
- * Composes: Tabs → URL Bar (with Save) → Request Panel → Response Viewer
+ * Composes: Tabs → URL Bar (with Save) → Request Panel → Response Viewer → Test Results
  */
 export const RequestBuilder = () => {
   const {
@@ -62,6 +64,12 @@ export const RequestBuilder = () => {
         environmentId: useEnvironmentStore.getState().activeEnvironmentId,
       });
       setResponse(activeTab.id, result);
+
+      // Auto-run test script if one exists (non-blocking)
+      const testScript = useTestRunnerStore.getState().getScript(activeTab.id);
+      if (testScript?.trim()) {
+        useTestRunnerStore.getState().runTests(activeTab.id);
+      }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Request failed';
       toast.error(message);
@@ -101,6 +109,7 @@ export const RequestBuilder = () => {
           params: activeTab.params.filter((p) => p.key),
           body: activeTab.body,
           auth: activeTab.auth,
+          testScript: useTestRunnerStore.getState().getScript(activeTab.id),
         });
         markSaved(activeTab.id, activeTab.savedRequestId, activeTab.savedCollectionId!);
         await fetchCollections();
@@ -187,7 +196,7 @@ export const RequestBuilder = () => {
             </button>
           </div>
 
-          {/* Request Panel (Params, Headers, Body, Auth) */}
+          {/* Request Panel (Params, Headers, Body, Auth, Tests) */}
           <div className={styles.panelSection}>
             <RequestPanel
               params={activeTab.params}
@@ -208,6 +217,7 @@ export const RequestBuilder = () => {
             response={activeTab.response}
             isLoading={activeTab.isLoading}
           />
+          <TestResultsPanel />
         </div>
       </div>
 

@@ -20,6 +20,8 @@ export class RequestService {
       params?: ISavedRequest['params'];
       body?: ISavedRequest['body'];
       auth?: ISavedRequest['auth'];
+      testScript?: string;
+      preRequestScript?: string;
     },
   ): Promise<ISavedRequest> {
     // Verify the collection belongs to this user
@@ -65,7 +67,7 @@ export class RequestService {
     data: Partial<
       Pick<
         ISavedRequest,
-        'name' | 'method' | 'url' | 'headers' | 'params' | 'body' | 'auth' | 'folderId' | 'sortOrder'
+        'name' | 'method' | 'url' | 'headers' | 'params' | 'body' | 'auth' | 'folderId' | 'sortOrder' | 'testScript' | 'preRequestScript'
       >
     >,
   ): Promise<ISavedRequest> {

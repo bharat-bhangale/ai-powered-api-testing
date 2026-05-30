@@ -31,8 +31,8 @@ describe('TestRunnerService', () => {
 
     expect(result.totalPassed).toBe(1);
     expect(result.totalFailed).toBe(0);
-    expect(result.tests[0].name).toBe('Status is 200');
-    expect(result.tests[0].passed).toBe(true);
+    expect(result.tests[0]!.name).toBe('Status is 200');
+    expect(result.tests[0]!.passed).toBe(true);
   });
 
   it('should run a failing test', async () => {
@@ -48,8 +48,8 @@ describe('TestRunnerService', () => {
 
     expect(result.totalPassed).toBe(0);
     expect(result.totalFailed).toBe(1);
-    expect(result.tests[0].passed).toBe(false);
-    expect(result.tests[0].error).toBeTruthy();
+    expect(result.tests[0]!.passed).toBe(false);
+    expect(result.tests[0]!.error).toBeTruthy();
   });
 
   it('should run multiple tests — some pass, some fail', async () => {
@@ -243,9 +243,9 @@ describe('TestRunnerService', () => {
     });
 
     expect(result.tests).toHaveLength(3);
-    expect(result.tests[0].passed).toBe(true);
-    expect(result.tests[1].passed).toBe(false);
-    expect(result.tests[2].passed).toBe(true);
+    expect(result.tests[0]!.passed).toBe(true);
+    expect(result.tests[1]!.passed).toBe(false);
+    expect(result.tests[2]!.passed).toBe(true);
     expect(result.totalPassed).toBe(2);
     expect(result.totalFailed).toBe(1);
   });

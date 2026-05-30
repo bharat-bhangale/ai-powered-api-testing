@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { KeyValueEditor } from '@/components/common/KeyValueEditor';
 import { BodyEditor } from './BodyEditor';
 import { AuthConfigPanel } from './AuthConfig';
+import { TestEditor } from '@/components/test-runner/TestEditor';
 import type { KeyValuePair, RequestBodyConfig, AuthConfig } from '@/stores/requestStore';
 import styles from './RequestPanel.module.css';
 
-type SubTab = 'params' | 'headers' | 'body' | 'auth';
+type SubTab = 'params' | 'headers' | 'body' | 'auth' | 'tests';
 
 interface RequestPanelProps {
   params: KeyValuePair[];
@@ -23,10 +24,11 @@ const SUB_TABS: { key: SubTab; label: string }[] = [
   { key: 'headers', label: 'Headers' },
   { key: 'body', label: 'Body' },
   { key: 'auth', label: 'Auth' },
+  { key: 'tests', label: 'Tests' },
 ];
 
 /**
- * Request configuration panel with sub-tabs for Params, Headers, Body, Auth.
+ * Request configuration panel with sub-tabs for Params, Headers, Body, Auth, Tests.
  */
 export const RequestPanel = ({
   params,
@@ -104,7 +106,12 @@ export const RequestPanel = ({
         {activeSubTab === 'auth' && (
           <AuthConfigPanel auth={auth} onChange={onAuthChange} />
         )}
+
+        {activeSubTab === 'tests' && (
+          <TestEditor />
+        )}
       </div>
     </div>
   );
 };
+

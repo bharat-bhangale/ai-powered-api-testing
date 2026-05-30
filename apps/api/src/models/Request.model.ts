@@ -31,6 +31,8 @@ export interface ISavedRequest extends Document {
     config: Record<string, unknown>;
   };
   sortOrder: number;
+  testScript: string;
+  preRequestScript: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +92,8 @@ const savedRequestSchema = new mongoose.Schema(
       config: { type: mongoose.Schema.Types.Mixed, default: {} },
     },
     sortOrder: { type: Number, default: 0 },
+    testScript: { type: String, default: '' },
+    preRequestScript: { type: String, default: '' },
   },
   { timestamps: true },
 );
