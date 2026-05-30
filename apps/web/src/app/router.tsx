@@ -5,10 +5,12 @@ import { useEnvironmentStore } from '@/stores/environmentStore';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { RequestBuilder } from '@/components/request-builder/RequestBuilder';
+import { CollectionRunner } from '@/components/collection-runner/CollectionRunner';
 import { TopBar } from '@/components/layout/TopBar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { AIChatPanel } from '@/components/ai/AIChatPanel';
+import { useRequestStore } from '@/stores/requestStore';
 import { OfflineBanner } from '@/components/common/OfflineBanner/OfflineBanner';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import styles from './router.module.css';
@@ -64,6 +66,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 const MainApp = () => {
   useKeyboardShortcuts();
   const fetchEnvironments = useEnvironmentStore((s) => s.fetchEnvironments);
+  const activeTabId = useRequestStore((s) => s.activeTabId);
 
   useEffect(() => {
     fetchEnvironments();
@@ -76,7 +79,7 @@ const MainApp = () => {
       <div className={styles.mainContent}>
         <Sidebar />
         <main className={styles.workArea}>
-          <RequestBuilder />
+          {activeTabId ? <RequestBuilder /> : <CollectionRunner />}
         </main>
         <AIChatPanel />
       </div>

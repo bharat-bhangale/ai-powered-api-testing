@@ -1,0 +1,364 @@
+import { SavedRequest, type ISavedRequest } from '../../models/Request.model';
+import { Collection } from '../../models/Collection.model';
+import { ExecutorService } from '../executor/executor.service';
+import { VariableResolver } from '../executor/variable-resolver';
+import { TestRunnerService } from '../test-runner/test-runner.service';
+import { TestRunService } from '../test-runs/test-run.service';
+import type { IRequestRunResult, ITestResult } from '../test-runs/TestRun.model';
+import { Environment } from '../../models/Environment.model';
+
+// ===== Types =====
+
+export interface RunProgressEvent {
+  type: 'progress';
+  data: {
+    requestIndex: number;
+    total: number;
+    requestName: string;
+    method: string;
+    url: string;
+    status: number;
+    statusText: string;
+    timing: number;
+    size: number;
+    testResults: ITestResult[];
+    totalPassed: number;
+    totalFailed: number;
+    error?: string;
+  };
+}
+
+export interface RunCompleteEvent {
+  type: 'complete';
+  data: {
+    runId: string;
+    totalRequests: number;
+    completedRequests: number;
+    totalTestsPassed: number;
+    totalTestsFailed: number;
+    totalDuration: number;
+    status: 'completed' | 'failed' | 'cancelled';
+  };
+}
+
+export type RunEvent = RunProgressEvent | RunCompleteEvent;
+
+export interface RunOptions {
+  userId: string;
+  collectionId: string;
+  environmentId?: string;
+  signal?: AbortSignal;
+}
+
+// ===== Service =====
+
+/**
+ * Collection Runner Service — executes all requests in a collection sequentially,
+ * runs their test scripts, resolves chain variables, and collects results.
+ */
+export class CollectionRunnerService {
+  private executor = new ExecutorService();
+  private testRunner = new TestRunnerService();
+  private testRunService = new TestRunService();
+
+  /**
+   * Runs all requests in a collection.
+   * Yields events as an async generator for SSE streaming.
+   */
+  async *run(options: RunOptions): AsyncGenerator<RunEvent> {
+    const { userId, collectionId, environmentId, signal } = options;
+
+    // 1. Load collection
+    const collection = await Collection.findOne({ _id: collectionId, userId });
+    if (!collection) {
+      throw new Error('Collection not found');
+    }
+
+    // 2. Load all requests in order
+    const requests = await SavedRequest.find({ collectionId, userId })
+      .sort({ sortOrder: 1 })
+      .lean() as unknown as ISavedRequest[];
+
+    if (requests.length === 0) {
+      throw new Error('Collection has no requests');
+    }
+
+    // 3. Load environment variables
+    let envVariables: Record<string, string> = {};
+    if (environmentId) {
+      const env = await Environment.findOne({ _id: environmentId, userId });
+      if (env) {
+        for (const v of env.variables) {
+          envVariables[v.key] = v.value;
+        }
+      }
+    }
+
+    // 4. Create a TestRun record
+    const run = await this.testRunService.create({
+      userId,
+      collectionId,
+      collectionName: collection.name,
+      environmentId,
+      trigger: 'manual',
+    });
+
+    // 5. Chain variables map: store responses from previous requests
+    const chainResponses = new Map<string, unknown>();
+    const chainVariables: Record<string, string> = {};
+
+    let completedCount = 0;
+    let totalPassed = 0;
+    let totalFailed = 0;
+    let totalDuration = 0;
+
+    // 6. Execute each request sequentially
+    for (let i = 0; i < requests.length; i++) {
+      // Check abort signal
+      if (signal?.aborted) {
+        await this.testRunService.complete(String(run._id), 'cancelled', requests.length);
+        yield {
+          type: 'complete',
+          data: {
+            runId: String(run._id),
+            totalRequests: requests.length,
+            completedRequests: completedCount,
+            totalTestsPassed: totalPassed,
+            totalTestsFailed: totalFailed,
+            totalDuration,
+            status: 'cancelled',
+          },
+        };
+        return;
+      }
+
+      const request = requests[i]!;
+      const requestResult = await this.executeRequest(
+        request,
+        { ...envVariables, ...chainVariables },
+        chainResponses,
+      );
+
+      // Update chain variables from this response
+      chainResponses.set(request.name, requestResult);
+      this.extractChainVariables(request.name, requestResult, chainVariables);
+
+      // Run test script if it exists
+      let testResults: ITestResult[] = [];
+      let testPassed = 0;
+      let testFailed = 0;
+
+      if (request.testScript?.trim() && requestResult.status > 0) {
+        try {
+          const testOutput = await this.testRunner.runTests({
+            script: request.testScript,
+            request: {
+              method: request.method,
+              url: request.url,
+              headers: {},
+              body: undefined,
+            },
+            response: {
+              status: requestResult.status,
+              statusText: requestResult.statusText,
+              headers: requestResult.headers,
+              body: requestResult.body,
+              size: requestResult.size,
+              timing: { total: requestResult.timing },
+            },
+          });
+
+          testResults = testOutput.tests.map((t) => ({
+            name: t.name,
+            passed: t.passed,
+            error: t.error,
+            duration: t.duration,
+          }));
+          testPassed = testOutput.totalPassed;
+          testFailed = testOutput.totalFailed;
+        } catch {
+          // Test execution error — don't fail the whole run
+          testResults = [];
+        }
+      }
+
+      // Build result record
+      const result: IRequestRunResult = {
+        requestId: String(request._id),
+        requestName: request.name,
+        method: request.method,
+        url: request.url,
+        status: requestResult.status,
+        statusText: requestResult.statusText,
+        timing: requestResult.timing,
+        size: requestResult.size,
+        testResults,
+        totalPassed: testPassed,
+        totalFailed: testFailed,
+        error: requestResult.error,
+      };
+
+      // Persist to DB
+      await this.testRunService.addResult(String(run._id), result);
+
+      completedCount++;
+      totalPassed += testPassed;
+      totalFailed += testFailed;
+      totalDuration += requestResult.timing;
+
+      // Yield progress event
+      yield {
+        type: 'progress',
+        data: {
+          requestIndex: i,
+          total: requests.length,
+          requestName: request.name,
+          method: request.method,
+          url: request.url,
+          status: requestResult.status,
+          statusText: requestResult.statusText,
+          timing: requestResult.timing,
+          size: requestResult.size,
+          testResults,
+          totalPassed: testPassed,
+          totalFailed: testFailed,
+          error: requestResult.error,
+        },
+      };
+    }
+
+    // 7. Mark run as completed
+    const finalStatus = totalFailed > 0 ? 'failed' : 'completed';
+    await this.testRunService.complete(String(run._id), finalStatus, requests.length);
+
+    yield {
+      type: 'complete',
+      data: {
+        runId: String(run._id),
+        totalRequests: requests.length,
+        completedRequests: completedCount,
+        totalTestsPassed: totalPassed,
+        totalTestsFailed: totalFailed,
+        totalDuration,
+        status: finalStatus,
+      },
+    };
+  }
+
+  // ===== Helpers =====
+
+  /**
+   * Execute a single request with variable resolution.
+   */
+  private async executeRequest(
+    request: ISavedRequest,
+    variables: Record<string, string>,
+    _chainResponses: Map<string, unknown>,
+  ): Promise<{
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: unknown;
+    timing: number;
+    size: number;
+    error?: string;
+  }> {
+    try {
+      const resolver = new VariableResolver(variables);
+      const resolvedUrl = resolver.resolve(request.url);
+      const resolvedHeaders = resolver.resolveKeyValues(
+        request.headers.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled })),
+      );
+      const resolvedBody = resolver.resolveBody(request.body);
+
+      // Auto-prepend https if needed
+      let url = resolvedUrl;
+      if (url && !url.match(/^https?:\/\//i)) {
+        url = `https://${url}`;
+      }
+
+      const result = await this.executor.execute({
+        method: request.method,
+        url,
+        headers: resolvedHeaders,
+        params: resolver.resolveKeyValues(
+          request.params.map((p) => ({ key: p.key, value: p.value, enabled: p.enabled })),
+        ),
+        body: resolvedBody,
+        timeout: 30000,
+      });
+
+      const normalizedHeaders: Record<string, string> = {};
+      if (result.response.headers) {
+        for (const [k, v] of Object.entries(result.response.headers)) {
+          normalizedHeaders[k] = Array.isArray(v) ? v.join(', ') : String(v);
+        }
+      }
+
+      return {
+        status: result.response.status,
+        statusText: result.response.statusText,
+        headers: normalizedHeaders,
+        body: result.response.body,
+        timing: result.response.timing.total,
+        size: result.response.size,
+        error: result.error?.message,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Request failed';
+      return {
+        status: 0,
+        statusText: 'Error',
+        headers: {},
+        body: null,
+        timing: 0,
+        size: 0,
+        error: message,
+      };
+    }
+  }
+
+  /**
+   * Extract response data into chain variables for downstream requests.
+   * Format: chain.<requestName>.<path>
+   */
+  private extractChainVariables(
+    requestName: string,
+    response: { status: number; body: unknown; headers: Record<string, string> },
+    variables: Record<string, string>,
+  ): void {
+    const safeKey = requestName.replace(/\s+/g, '_');
+
+    // chain.requestName.status
+    variables[`chain.${safeKey}.status`] = String(response.status);
+
+    // Extract top-level body fields
+    if (response.body && typeof response.body === 'object' && !Array.isArray(response.body)) {
+      const body = response.body as Record<string, unknown>;
+      for (const [key, value] of Object.entries(body)) {
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          variables[`chain.${safeKey}.body.${key}`] = String(value);
+        }
+      }
+    }
+
+    // Extract common auth patterns
+    if (response.body && typeof response.body === 'object') {
+      const body = response.body as Record<string, unknown>;
+      for (const tokenKey of ['token', 'access_token', 'accessToken', 'id']) {
+        if (typeof body[tokenKey] === 'string') {
+          variables[`chain.${safeKey}.${tokenKey}`] = body[tokenKey] as string;
+        }
+      }
+      // Nested data object
+      if (body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+        const data = body.data as Record<string, unknown>;
+        for (const [key, value] of Object.entries(data)) {
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            variables[`chain.${safeKey}.data.${key}`] = String(value);
+          }
+        }
+      }
+    }
+  }
+}

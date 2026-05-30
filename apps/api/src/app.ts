@@ -46,6 +46,7 @@ import historyRoutes from './modules/history/history.routes';
 import importRoutes from './modules/import/import.routes';
 import aiRoutes from './modules/ai/ai.routes';
 import testRunnerRoutes from './modules/test-runner/test-runner.routes';
+import collectionRunnerRoutes from './modules/collection-runner/collection-runner.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -56,6 +57,7 @@ app.use('/api/history', historyRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/test-runner', testRunnerRoutes);
+app.use('/api', collectionRunnerRoutes);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {
