@@ -13,6 +13,7 @@ import { RequestPanel } from './RequestPanel';
 import { SaveModal } from './SaveModal';
 import { ResponseViewer } from '@/components/response-viewer/ResponseViewer';
 import { TestResultsPanel } from '@/components/test-runner/TestResultsPanel';
+import { useAutoTest } from '@/hooks/useAutoTest';
 import { generateCurl } from '@/utils/curl-generator';
 import styles from './RequestBuilder.module.css';
 
@@ -21,6 +22,9 @@ import styles from './RequestBuilder.module.css';
  * Composes: Tabs → URL Bar (with Save) → Request Panel → Response Viewer → Test Results
  */
 export const RequestBuilder = () => {
+  // Hook: watches for new responses and triggers AI auto-testing
+  useAutoTest();
+
   const {
     tabs,
     activeTabId,

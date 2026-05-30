@@ -86,3 +86,14 @@
 .actualValue {
   color: var(--color-error);
 }
+
+/* ===== AI Badge ===== */
+
+.aiBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-1);
+  font-size: 11px;
+  vertical-align: middle;
+  opacity: 0.7;
+}

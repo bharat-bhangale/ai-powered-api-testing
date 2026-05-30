@@ -5,6 +5,7 @@ import styles from './TestResultItem.module.css';
 
 interface TestResultItemProps {
   result: TestResult;
+  isAIGenerated?: boolean;
 }
 
 function stringify(value: unknown): string {
@@ -19,7 +20,7 @@ function stringify(value: unknown): string {
  * ✅ / ❌ + test name + duration.
  * Failed tests expand on click to show error details + expected/actual.
  */
-export const TestResultItem = ({ result }: TestResultItemProps) => {
+export const TestResultItem = ({ result, isAIGenerated }: TestResultItemProps) => {
   const [expanded, setExpanded] = useState(!result.passed);
 
   const canExpand = !result.passed && result.error;
@@ -47,7 +48,10 @@ export const TestResultItem = ({ result }: TestResultItemProps) => {
           </>
         )}
 
-        <span className={styles.testName}>{result.name}</span>
+        <span className={styles.testName}>
+          {result.name}
+          {isAIGenerated && <span className={styles.aiBadge}>🤖</span>}
+        </span>
         <span className={styles.duration}>{result.duration}ms</span>
       </div>
 

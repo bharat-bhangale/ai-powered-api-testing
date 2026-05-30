@@ -158,3 +158,64 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ===== Auto-test Toggle ===== */
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toggleBtn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border-hover);
+}
+
+.toggleActive {
+  background: hsla(38, 92%, 50%, 0.12);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.toggleActive:hover {
+  background: hsla(38, 92%, 50%, 0.2);
+}
+
+/* ===== AI Badge in Header ===== */
+
+.aiBadgeHeader {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--space-1);
+  padding: 1px 5px;
+  background: hsla(262, 80%, 60%, 0.15);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: hsl(262, 80%, 70%);
+  font-weight: var(--font-medium);
+}
+
+/* ===== AI Loading ===== */
+
+.aiLoading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  gap: var(--space-2);
+  color: hsl(262, 80%, 70%);
+  font-size: var(--text-sm);
+  background: hsla(262, 80%, 60%, 0.05);
+  border-bottom: 1px solid var(--color-border);
+}

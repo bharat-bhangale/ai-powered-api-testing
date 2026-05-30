@@ -13,6 +13,12 @@ interface TestRunnerStore {
   isRunning: Record<string, boolean>;
   /** Global auto-test toggle */
   autoTestEnabled: boolean;
+  /** Whether AI is currently generating tests for a tab */
+  isAIGenerating: Record<string, boolean>;
+  /** Tracks which results were AI-generated (per tab) */
+  aiGeneratedTabs: Record<string, boolean>;
+  /** Last response hash to prevent re-triggering */
+  lastResponseHash: Record<string, string>;
 
   // Actions
   setScript: (tabId: string, script: string) => void;
@@ -21,6 +27,11 @@ interface TestRunnerStore {
   clearResults: (tabId: string) => void;
   setAutoTestEnabled: (enabled: boolean) => void;
   setResults: (tabId: string, results: TestRunResponse) => void;
+  setAIGenerating: (tabId: string, generating: boolean) => void;
+  setAIGenerated: (tabId: string, isAI: boolean) => void;
+  setLastResponseHash: (tabId: string, hash: string) => void;
+  /** Run AI-generated tests: stores the AI script, runs it, marks results as AI */
+  runAITests: (tabId: string, aiScript: string) => Promise<void>;
 }
 
 // ===== Store =====
@@ -30,6 +41,9 @@ export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
   results: {},
   isRunning: {},
   autoTestEnabled: false,
+  isAIGenerating: {},
+  aiGeneratedTabs: {},
+  lastResponseHash: {},
 
   setScript: (tabId, script) => {
     set((state) => ({
@@ -51,10 +65,10 @@ export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
 
     set((state) => ({
       isRunning: { ...state.isRunning, [tabId]: true },
+      aiGeneratedTabs: { ...state.aiGeneratedTabs, [tabId]: false },
     }));
 
     try {
-      // Build request context from the tab's resolved request
       const requestCtx = {
         method: tab.method,
         url: tab.response.request.resolvedUrl || tab.url,
@@ -62,7 +76,6 @@ export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
         body: tab.response.request.resolvedBody,
       };
 
-      // Build response context
       const responseCtx = {
         status: tab.response.response.status,
         statusText: tab.response.response.statusText,
@@ -96,9 +109,82 @@ export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
     }
   },
 
+  runAITests: async (tabId, aiScript) => {
+    const requestStore = useRequestStore.getState();
+    const tab = requestStore.tabs.find((t) => t.id === tabId);
+    if (!tab?.response) return;
+
+    set((state) => ({
+      isRunning: { ...state.isRunning, [tabId]: true },
+      aiGeneratedTabs: { ...state.aiGeneratedTabs, [tabId]: true },
+    }));
+
+    try {
+      const requestCtx = {
+        method: tab.method,
+        url: tab.response.request.resolvedUrl || tab.url,
+        headers: tab.response.request.resolvedHeaders || {},
+        body: tab.response.request.resolvedBody,
+      };
+
+      const responseCtx = {
+        status: tab.response.response.status,
+        statusText: tab.response.response.statusText,
+        headers: tab.response.response.headers,
+        body: tab.response.response.body,
+        size: tab.response.response.size,
+        timing: tab.response.response.timing,
+      };
+
+      // Run manual tests first if they exist
+      const manualScript = get().scripts[tabId];
+      let manualResults: TestRunResponse | null = null;
+      if (manualScript?.trim()) {
+        manualResults = await executeTests(manualScript, requestCtx, responseCtx);
+      }
+
+      // Then run AI-generated tests
+      const aiResults = await executeTests(aiScript, requestCtx, responseCtx);
+
+      // Merge results: manual first, then AI
+      const mergedResults: TestRunResponse = {
+        results: [
+          ...(manualResults?.results || []),
+          ...aiResults.results,
+        ],
+        totalPassed: (manualResults?.totalPassed || 0) + aiResults.totalPassed,
+        totalFailed: (manualResults?.totalFailed || 0) + aiResults.totalFailed,
+        duration: (manualResults?.duration || 0) + aiResults.duration,
+        logs: [...(manualResults?.logs || []), ...aiResults.logs],
+        error: manualResults?.error || aiResults.error,
+      };
+
+      set((state) => ({
+        results: { ...state.results, [tabId]: mergedResults },
+        isRunning: { ...state.isRunning, [tabId]: false },
+      }));
+    } catch {
+      set((state) => ({
+        results: {
+          ...state.results,
+          [tabId]: {
+            results: [],
+            totalPassed: 0,
+            totalFailed: 0,
+            duration: 0,
+            logs: [],
+            error: 'Failed to execute AI-generated tests',
+          },
+        },
+        isRunning: { ...state.isRunning, [tabId]: false },
+      }));
+    }
+  },
+
   clearResults: (tabId) => {
     set((state) => ({
       results: { ...state.results, [tabId]: null },
+      aiGeneratedTabs: { ...state.aiGeneratedTabs, [tabId]: false },
     }));
   },
 
@@ -109,6 +195,24 @@ export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
   setResults: (tabId, results) => {
     set((state) => ({
       results: { ...state.results, [tabId]: results },
+    }));
+  },
+
+  setAIGenerating: (tabId, generating) => {
+    set((state) => ({
+      isAIGenerating: { ...state.isAIGenerating, [tabId]: generating },
+    }));
+  },
+
+  setAIGenerated: (tabId, isAI) => {
+    set((state) => ({
+      aiGeneratedTabs: { ...state.aiGeneratedTabs, [tabId]: isAI },
+    }));
+  },
+
+  setLastResponseHash: (tabId, hash) => {
+    set((state) => ({
+      lastResponseHash: { ...state.lastResponseHash, [tabId]: hash },
     }));
   },
 }));
