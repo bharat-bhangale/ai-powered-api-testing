@@ -1,6 +1,9 @@
 import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { validateUrl } from '../../utils/ssrf-guard';
+import { executeSandbox } from '../test-runner/sandbox';
+import { buildAtxGlobal } from '../test-runner/atx-api';
+import { VariableResolver } from './variable-resolver';
 
 /**
  * Parameters for executing an HTTP request.
@@ -12,6 +15,8 @@ interface ExecuteParams {
   params: Record<string, string>;
   body: unknown;
   timeout?: number;
+  preRequestScript?: string;
+  variables?: Record<string, string>;
 }
 
 /**
@@ -39,6 +44,9 @@ interface ExecutionResult {
     message: string;
   };
   executedAt: string;
+  preRequestLogs?: string[];
+  preRequestError?: string;
+  globalsToSet?: Record<string, string>;
 }
 
 /**
@@ -50,16 +58,84 @@ export class ExecutorService {
     const startTime = Date.now();
 
     try {
+      let finalUrl = params.url;
+      let finalHeaders = { ...params.headers };
+      let finalParams = { ...params.params };
+      let finalBody = params.body;
+      
+      let preRequestLogs: string[] = [];
+      let preRequestError: string | undefined;
+      const globalsToSet: Record<string, string> = {};
+
+      // Execute Pre-Request Script if provided
+      if (params.preRequestScript?.trim()) {
+        const { atx, collected } = buildAtxGlobal(
+          {
+            method: params.method,
+            url: params.url,
+            headers: params.headers,
+            body: params.body,
+          },
+          undefined,
+          params.variables || {},
+        );
+
+        const sandboxResult = executeSandbox(params.preRequestScript, atx, collected);
+        preRequestLogs = sandboxResult.logs;
+        preRequestError = sandboxResult.error;
+
+        // Collect globals
+        if (collected.globals.size > 0) {
+          for (const [k, v] of collected.globals.entries()) {
+            globalsToSet[k] = v;
+          }
+        }
+
+        // If the script set new variables, apply a second pass of resolution
+        // to handle any {{variables}} that were injected.
+        if (collected.variables.size > 0) {
+          const mergedVariables = { ...params.variables };
+          for (const [k, v] of collected.variables.entries()) {
+            mergedVariables[k] = v;
+          }
+          
+          const resolver = new VariableResolver(mergedVariables);
+          
+          // Second pass resolution
+          finalUrl = resolver.resolve(finalUrl);
+          
+          for (const [k, v] of Object.entries(finalHeaders)) {
+            finalHeaders[k] = resolver.resolve(v);
+          }
+          
+          for (const [k, v] of Object.entries(finalParams)) {
+            finalParams[k] = resolver.resolve(v);
+          }
+          
+          if (typeof finalBody === 'string') {
+            finalBody = resolver.resolve(finalBody);
+          } else if (finalBody && typeof finalBody === 'object') {
+            // Stringify, resolve, then parse back if it was an object
+            try {
+              const resolvedStr = resolver.resolve(JSON.stringify(finalBody));
+              finalBody = JSON.parse(resolvedStr);
+            } catch {
+              // Ignore parse errors, leave as is
+            }
+          }
+        }
+      }
+
       // SSRF protection: validate the target URL before making the request
-      await validateUrl(params.url);
+      await validateUrl(finalUrl);
 
       // Build axios config
       const config: AxiosRequestConfig = {
         method: params.method.toLowerCase() as AxiosRequestConfig['method'],
-        url: params.url,
-        headers: params.headers || {},
-        params: params.params || {},
-        data: params.body ?? undefined,
+        url: finalUrl,
+        headers: finalHeaders || {},
+        params: finalParams || {},
+        data: finalBody ?? undefined,
         timeout: params.timeout || 30000,
         validateStatus: () => true, // Never throw on any status code
         maxRedirects: 5,
@@ -85,9 +161,9 @@ export class ExecutorService {
       return {
         success: true,
         request: {
-          resolvedUrl: params.url,
-          resolvedHeaders: params.headers,
-          resolvedBody: params.body,
+          resolvedUrl: finalUrl,
+          resolvedHeaders: finalHeaders,
+          resolvedBody: finalBody,
         },
         response: {
           status: response.status,
@@ -98,6 +174,9 @@ export class ExecutorService {
           timing: { total: endTime - startTime },
         },
         executedAt: new Date().toISOString(),
+        preRequestLogs,
+        preRequestError,
+        globalsToSet,
       };
     } catch (error: unknown) {
       const endTime = Date.now();

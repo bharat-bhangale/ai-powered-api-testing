@@ -7,6 +7,8 @@ import { useRequestStore } from './requestStore';
 interface TestRunnerStore {
   /** The current test script content (per active tab) */
   scripts: Record<string, string>;
+  /** The current pre-request script content (per active tab) */
+  preRequestScripts: Record<string, string>;
   /** Test results for each tab */
   results: Record<string, TestRunResponse | null>;
   /** Loading state per tab */
@@ -23,6 +25,8 @@ interface TestRunnerStore {
   // Actions
   setScript: (tabId: string, script: string) => void;
   getScript: (tabId: string) => string;
+  setPreRequestScript: (tabId: string, script: string) => void;
+  getPreRequestScript: (tabId: string) => string;
   runTests: (tabId: string) => Promise<void>;
   clearResults: (tabId: string) => void;
   setAutoTestEnabled: (enabled: boolean) => void;
@@ -38,6 +42,7 @@ interface TestRunnerStore {
 
 export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
   scripts: {},
+  preRequestScripts: {},
   results: {},
   isRunning: {},
   autoTestEnabled: false,
@@ -53,6 +58,16 @@ export const useTestRunnerStore = create<TestRunnerStore>((set, get) => ({
 
   getScript: (tabId) => {
     return get().scripts[tabId] || '';
+  },
+
+  setPreRequestScript: (tabId, script) => {
+    set((state) => ({
+      preRequestScripts: { ...state.preRequestScripts, [tabId]: script },
+    }));
+  },
+
+  getPreRequestScript: (tabId) => {
+    return get().preRequestScripts[tabId] || '';
   },
 
   runTests: async (tabId) => {

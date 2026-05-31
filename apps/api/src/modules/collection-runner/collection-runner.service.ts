@@ -6,6 +6,7 @@ import { TestRunnerService } from '../test-runner/test-runner.service';
 import { TestRunService } from '../test-runs/test-run.service';
 import type { IRequestRunResult, ITestResult } from '../test-runs/TestRun.model';
 import { Environment } from '../../models/Environment.model';
+import { ChainResolver, type ChainContextData } from './chain-resolver';
 
 // ===== Types =====
 
@@ -103,9 +104,8 @@ export class CollectionRunnerService {
       trigger: 'manual',
     });
 
-    // 5. Chain variables map: store responses from previous requests
-    const chainResponses = new Map<string, unknown>();
-    const chainVariables: Record<string, string> = {};
+    // 5. Track chain context across the run
+    const chainContext = new Map<string, ChainContextData>();
 
     let completedCount = 0;
     let totalPassed = 0;
@@ -133,15 +133,19 @@ export class CollectionRunnerService {
       }
 
       const request = requests[i]!;
-      const requestResult = await this.executeRequest(
+      const { result: requestResult, chainWarningMsg } = await this.executeRequest(
         request,
-        { ...envVariables, ...chainVariables },
-        chainResponses,
+        envVariables,
+        chainContext,
       );
 
-      // Update chain variables from this response
-      chainResponses.set(request.name, requestResult);
-      this.extractChainVariables(request.name, requestResult, chainVariables);
+      // Add to chain context for subsequent requests
+      chainContext.set(request.name, {
+        status: requestResult.status,
+        headers: requestResult.headers,
+        body: requestResult.body,
+        timing: requestResult.timing,
+      });
 
       // Run test script if it exists
       let testResults: ITestResult[] = [];
@@ -195,7 +199,7 @@ export class CollectionRunnerService {
         testResults,
         totalPassed: testPassed,
         totalFailed: testFailed,
-        error: requestResult.error,
+        error: chainWarningMsg ? `${requestResult.error ? requestResult.error + ' | ' : ''}${chainWarningMsg}` : requestResult.error,
       };
 
       // Persist to DB
@@ -222,7 +226,7 @@ export class CollectionRunnerService {
           testResults,
           totalPassed: testPassed,
           totalFailed: testFailed,
-          error: requestResult.error,
+          error: result.error,
         },
       };
     }
@@ -253,23 +257,60 @@ export class CollectionRunnerService {
   private async executeRequest(
     request: ISavedRequest,
     variables: Record<string, string>,
-    _chainResponses: Map<string, unknown>,
+    chainContext: Map<string, ChainContextData>,
   ): Promise<{
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    body: unknown;
-    timing: number;
-    size: number;
-    error?: string;
+    result: {
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: unknown;
+      timing: number;
+      size: number;
+      error?: string;
+    },
+    chainWarningMsg?: string
   }> {
     try {
-      const resolver = new VariableResolver(variables);
-      const resolvedUrl = resolver.resolve(request.url);
-      const resolvedHeaders = resolver.resolveKeyValues(
-        request.headers.map((h) => ({ key: h.key, value: h.value, enabled: h.enabled })),
-      );
-      const resolvedBody = resolver.resolveBody(request.body);
+      const chainWarnings: string[] = [];
+      const chainResolver = new ChainResolver(chainContext);
+      const envResolver = new VariableResolver(variables);
+      
+      let chainUrl = request.url;
+      const chainHeaders = request.headers;
+      const chainParams = request.params;
+      const chainBodyRaw = request.body;
+      
+      try {
+        chainUrl = chainResolver.resolve(chainUrl, chainWarnings);
+      } catch (e) {
+        // Safe fallback
+      }
+
+      // Resolve Env variables (chain output feeds into env resolution)
+      const resolvedUrl = envResolver.resolve(chainUrl);
+      
+      const requestHeaders: Array<{ key: string; value: string; enabled: boolean }> = chainHeaders.map(h => ({
+        key: chainResolver.resolve(h.key, chainWarnings),
+        value: chainResolver.resolve(h.value, chainWarnings),
+        enabled: h.enabled
+      }));
+      const resolvedHeadersRecord = envResolver.resolveKeyValues(requestHeaders);
+
+      const requestParams: Array<{ key: string; value: string; enabled: boolean }> = chainParams.map(p => ({
+        key: chainResolver.resolve(p.key, chainWarnings),
+        value: chainResolver.resolve(p.value, chainWarnings),
+        enabled: p.enabled
+      }));
+      const resolvedParamsRecord = envResolver.resolveKeyValues(requestParams);
+
+      let finalBodyContent = chainBodyRaw.content;
+      if (chainBodyRaw.mode !== 'none' && chainBodyRaw.content) {
+        finalBodyContent = chainResolver.resolve(chainBodyRaw.content, chainWarnings);
+      }
+      const resolvedBodyValue = envResolver.resolveBody({ mode: chainBodyRaw.mode, content: finalBodyContent });
+
+      // Build chain warning message if any
+      const chainWarningMsg = chainWarnings.length > 0 ? chainWarnings.join(' | ') : undefined;
 
       // Auto-prepend https if needed
       let url = resolvedUrl;
@@ -280,11 +321,9 @@ export class CollectionRunnerService {
       const result = await this.executor.execute({
         method: request.method,
         url,
-        headers: resolvedHeaders,
-        params: resolver.resolveKeyValues(
-          request.params.map((p) => ({ key: p.key, value: p.value, enabled: p.enabled })),
-        ),
-        body: resolvedBody,
+        headers: resolvedHeadersRecord,
+        params: resolvedParamsRecord,
+        body: resolvedBodyValue,
         timeout: 30000,
       });
 
@@ -296,24 +335,29 @@ export class CollectionRunnerService {
       }
 
       return {
-        status: result.response.status,
-        statusText: result.response.statusText,
-        headers: normalizedHeaders,
-        body: result.response.body,
-        timing: result.response.timing.total,
-        size: result.response.size,
-        error: result.error?.message,
+        result: {
+          status: result.response.status,
+          statusText: result.response.statusText,
+          headers: normalizedHeaders,
+          body: result.response.body,
+          timing: result.response.timing.total,
+          size: result.response.size,
+          error: result.error?.message,
+        },
+        chainWarningMsg,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Request failed';
       return {
-        status: 0,
-        statusText: 'Error',
-        headers: {},
-        body: null,
-        timing: 0,
-        size: 0,
-        error: message,
+        result: {
+          status: 0,
+          statusText: 'Error',
+          headers: {},
+          body: null,
+          timing: 0,
+          size: 0,
+          error: message,
+        },
       };
     }
   }

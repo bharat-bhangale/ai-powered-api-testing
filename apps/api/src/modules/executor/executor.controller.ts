@@ -18,8 +18,8 @@ const historyService = new HistoryService();
  */
 export async function executeRequest(req: Request, res: Response): Promise<void> {
   try {
-    const { method, url, headers, params, body, auth, environmentId, timeout } =
-      req.body as ExecuteRequestBody;
+    const { method, url, headers, params, body, auth, environmentId, timeout, preRequestScript } =
+      req.body as ExecuteRequestBody & { preRequestScript?: string };
 
     // Validate required fields
     if (!url || !method) {
@@ -71,13 +71,15 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
     Object.assign(headerObj, authResult.headers);
     Object.assign(paramObj, authResult.params);
 
+
+
+
     // Auto-set Content-Type for JSON body if not already set
     if (parsedBody && !headerObj['Content-Type'] && !headerObj['content-type']) {
       if (body?.mode === 'json') {
         headerObj['Content-Type'] = 'application/json';
       }
     }
-
     const result = await executorService.execute({
       method,
       url: resolvedUrl,
@@ -85,7 +87,14 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
       params: paramObj,
       body: parsedBody,
       timeout,
+      preRequestScript,
+      variables,
     });
+
+    // ===== Persist globals if set =====
+    if (environmentId && req.userId && result.globalsToSet && Object.keys(result.globalsToSet).length > 0) {
+      await environmentService.updateVariables(req.userId, environmentId, result.globalsToSet);
+    }
 
     // ===== Auto-save to history (fire-and-forget) =====
     if (req.userId) {

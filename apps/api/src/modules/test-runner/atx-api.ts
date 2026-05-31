@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import { createExpect, type ExpectChain } from './assertion-library';
 
 // ===== Types =====
@@ -55,6 +56,16 @@ export interface AtxGlobal {
     get: (name: string) => string | undefined;
     set: (name: string, value: string) => void;
   };
+  globals: {
+    set: (name: string, value: string) => void;
+  };
+  crypto: {
+    hmacSHA256: (data: string, key: string) => string;
+    md5: (data: string) => string;
+    base64Encode: (data: string) => string;
+  };
+  uuid: () => string;
+  timestamp: () => number;
   log: (message: unknown) => void;
 }
 
@@ -64,6 +75,7 @@ interface CollectedData {
   tests: TestResult[];
   logs: string[];
   variables: Map<string, string>;
+  globals: Map<string, string>;
 }
 
 // ===== Factory =====
@@ -79,7 +91,7 @@ interface CollectedData {
  */
 export function buildAtxGlobal(
   request: RequestContext,
-  response: ResponseContext,
+  response?: ResponseContext,
   initialVariables?: Record<string, string>,
 ): { atx: AtxGlobal; collected: CollectedData } {
   const collected: CollectedData = {
@@ -88,6 +100,7 @@ export function buildAtxGlobal(
     variables: new Map(
       initialVariables ? Object.entries(initialVariables) : [],
     ),
+    globals: new Map(),
   };
 
   const atx: AtxGlobal = {
@@ -99,8 +112,8 @@ export function buildAtxGlobal(
       body: request.body,
     }),
 
-    // ===== Response (read-only) =====
-    response: Object.freeze({
+    // ===== Response (read-only, may be undefined in pre-request) =====
+    response: response ? Object.freeze({
       status: response.status,
       statusText: response.statusText,
       headers: Object.freeze({ ...response.headers }),
@@ -124,7 +137,7 @@ export function buildAtxGlobal(
         if (typeof response.body === 'string') return response.body;
         return JSON.stringify(response.body);
       },
-    }),
+    }) : undefined as any,
 
     // ===== Assertions =====
     expect: (value: unknown) => createExpect(value),
@@ -160,6 +173,30 @@ export function buildAtxGlobal(
       set(name: string, value: string) {
         collected.variables.set(name, value);
       },
+    },
+    globals: {
+      set(name: string, value: string) {
+        collected.globals.set(name, value);
+      },
+    },
+
+    // ===== Utilities =====
+    crypto: {
+      hmacSHA256(data: string, key: string) {
+        return crypto.createHmac('sha256', key).update(data).digest('hex');
+      },
+      md5(data: string) {
+        return crypto.createHash('md5').update(data).digest('hex');
+      },
+      base64Encode(data: string) {
+        return Buffer.from(data).toString('base64');
+      },
+    },
+    uuid() {
+      return crypto.randomUUID();
+    },
+    timestamp() {
+      return Date.now();
     },
 
     // ===== Logging =====
