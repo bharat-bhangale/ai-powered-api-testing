@@ -51,6 +51,7 @@ import scheduleRoutes from './modules/schedules/schedule.routes';
 import schemaValidatorRoutes from './modules/schema-validator/schema-validator.routes';
 import environmentMatrixRoutes from './modules/environment-matrix/environment-matrix.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import testTrendRoutes from './modules/test-runs/test-trend.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -66,6 +67,7 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/schema-validator', schemaValidatorRoutes);
 app.use('/api/environment-matrix', environmentMatrixRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/test-runs', testTrendRoutes);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {
