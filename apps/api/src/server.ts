@@ -1,6 +1,7 @@
 import app from './app';
 import { env } from './config/env';
 import { connectDatabase } from './config/database';
+import { scheduleWorker } from './modules/schedules/schedule.worker';
 
 /**
  * Server entry point.
@@ -21,6 +22,11 @@ async function start(): Promise<void> {
       console.log(`🚀 Server running on http://localhost:${env.PORT}`);
       console.log(`📋 Health check: http://localhost:${env.PORT}/health`);
       console.log(`🔧 Environment: ${env.NODE_ENV}`);
+
+      // Start schedule worker if database is connected
+      if (env.MONGODB_URI) {
+        scheduleWorker.start();
+      }
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
