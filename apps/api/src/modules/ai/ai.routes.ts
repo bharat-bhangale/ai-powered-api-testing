@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateTests, debugRequest, chat, getUsage, generateSuite } from './ai.controller';
+import { generateTests, debugRequest, chat, getUsage, generateSuite, analyzeCoverage } from './ai.controller';
 import { authenticate } from '../../middleware/authenticate';
 
 const router = Router();
@@ -12,5 +12,6 @@ router.post('/generate-suite', generateSuite);
 router.post('/debug', debugRequest);
 router.post('/chat', chat);
 router.get('/usage', getUsage);
+router.post('/analyze-coverage', analyzeCoverage);
 
 export default router;

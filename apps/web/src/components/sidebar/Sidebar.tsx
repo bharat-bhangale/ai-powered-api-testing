@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { FolderPlus, LogOut, Settings, Clock, Download, Layers } from 'lucide-react';
+import { FolderPlus, LogOut, Settings, Clock, Download, Layers, BarChart3 } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useAuthStore } from '@/stores/authStore';
 import { CollectionTree } from './CollectionTree';
@@ -22,6 +23,9 @@ export const Sidebar = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [activeView, setActiveView] = useState<SidebarView>('collections');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isDashboard = location.pathname === '/dashboard';
 
   useEffect(() => {
     fetchCollections();
@@ -53,6 +57,15 @@ export const Sidebar = () => {
         >
           <Clock size={14} />
           <span>History</span>
+        </button>
+        <button
+          className={`${styles.viewTab} ${isDashboard ? styles.viewTabActive : ''}`}
+          onClick={() => navigate(isDashboard ? '/' : '/dashboard')}
+          type="button"
+          title="Dashboard"
+        >
+          <BarChart3 size={14} />
+          <span>Dashboard</span>
         </button>
       </div>
 

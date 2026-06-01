@@ -50,6 +50,7 @@ import collectionRunnerRoutes from './modules/collection-runner/collection-runne
 import scheduleRoutes from './modules/schedules/schedule.routes';
 import schemaValidatorRoutes from './modules/schema-validator/schema-validator.routes';
 import environmentMatrixRoutes from './modules/environment-matrix/environment-matrix.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -64,6 +65,7 @@ app.use('/api', collectionRunnerRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/schema-validator', schemaValidatorRoutes);
 app.use('/api/environment-matrix', environmentMatrixRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {

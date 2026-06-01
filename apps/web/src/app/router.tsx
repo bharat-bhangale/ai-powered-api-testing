@@ -6,6 +6,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
 import { RequestBuilder } from '@/components/request-builder/RequestBuilder';
 import { CollectionRunner } from '@/components/collection-runner/CollectionRunner';
+import { DashboardPage } from '@/pages/DashboardPage';
 import { TopBar } from '@/components/layout/TopBar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Sidebar } from '@/components/sidebar/Sidebar';
@@ -67,10 +68,13 @@ const MainApp = () => {
   useKeyboardShortcuts();
   const fetchEnvironments = useEnvironmentStore((s) => s.fetchEnvironments);
   const activeTabId = useRequestStore((s) => s.activeTabId);
+  const location = useLocation();
 
   useEffect(() => {
     fetchEnvironments();
   }, [fetchEnvironments]);
+
+  const isDashboard = location.pathname === '/dashboard';
 
   return (
     <div className={styles.appLayout}>
@@ -79,7 +83,13 @@ const MainApp = () => {
       <div className={styles.mainContent}>
         <Sidebar />
         <main className={styles.workArea}>
-          {activeTabId ? <RequestBuilder /> : <CollectionRunner />}
+          {isDashboard ? (
+            <DashboardPage />
+          ) : activeTabId ? (
+            <RequestBuilder />
+          ) : (
+            <CollectionRunner />
+          )}
         </main>
         <AIChatPanel />
       </div>
@@ -122,6 +132,14 @@ export const AppRouter = () => {
       />
       <Route
         path="/"
+        element={
+          <ProtectedRoute>
+            <MainApp />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <MainApp />

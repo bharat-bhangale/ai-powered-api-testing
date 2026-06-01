@@ -3,12 +3,14 @@ import { TestGeneratorService } from './features/test-generator.service';
 import { DebugAssistantService } from './features/debug-assistant.service';
 import { ChatService } from './features/chat.service';
 import { SuiteGeneratorService } from './features/suite-generator.service';
+import { CoverageAnalyzerService } from './features/coverage-analyzer.service';
 import { usageTracker } from './utils/usage-tracker';
 
 const testGenerator = new TestGeneratorService();
 const debugAssistant = new DebugAssistantService();
 const chatService = new ChatService();
 const suiteGenerator = new SuiteGeneratorService();
+const coverageAnalyzer = new CoverageAnalyzerService();
 
 /**
  * POST /api/ai/generate-tests
@@ -142,6 +144,40 @@ export async function generateSuite(req: Request, res: Response): Promise<void> 
     res.json({ success: true, data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'AI suite generation failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/analyze-coverage
+ * AI analyzes test coverage for a collection and identifies gaps.
+ */
+export async function analyzeCoverage(req: Request, res: Response): Promise<void> {
+  try {
+    if (!usageTracker.canUse(req.userId!)) {
+      res.status(429).json({
+        success: false,
+        error: { code: 'RATE_LIMIT', message: 'Daily AI limit reached. Resets at midnight.' },
+      });
+      return;
+    }
+
+    const { collectionId } = req.body;
+    if (!collectionId) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'collectionId is required' },
+      });
+      return;
+    }
+
+    const result = await coverageAnalyzer.analyze(req.userId!, collectionId);
+    const usage = usageTracker.increment(req.userId!);
+
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'AI coverage analysis failed';
     res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
   }
 }
