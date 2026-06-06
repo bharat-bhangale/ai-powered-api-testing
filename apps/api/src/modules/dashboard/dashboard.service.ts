@@ -1,5 +1,6 @@
-import { TestRun } from '../test-runs/TestRun.model';
-import { Collection } from '../../models/Collection.model';
+import { dbProvider } from '../../data/database-provider';
+import type { TestRunRecord } from '@atx/db';
+import type { IRequestRunResult } from '../test-runs/TestRun.model';
 
 // ===== Types =====
 
@@ -61,13 +62,16 @@ export class DashboardService {
    * Get full dashboard data for a user.
    */
   async getDashboard(userId: string): Promise<DashboardData> {
+    const allRuns = await dbProvider.testRuns.listByUser({ userId, limit: 1000 });
+    const completedRuns = allRuns.filter((r) => r.status === 'completed' || r.status === 'failed');
+
     const [passRate, trend, slowestEndpoints, recentFailures, collectionHealth] =
       await Promise.all([
-        this.getPassRate(userId),
-        this.getTrend(userId),
-        this.getSlowestEndpoints(userId),
-        this.getRecentFailures(userId),
-        this.getCollectionHealth(userId),
+        this.getPassRate(completedRuns),
+        this.getTrend(completedRuns),
+        this.getSlowestEndpoints(completedRuns),
+        this.getRecentFailures(completedRuns),
+        this.getCollectionHealth(userId, completedRuns),
       ]);
 
     return { passRate, trend, slowestEndpoints, recentFailures, collectionHealth };
@@ -76,17 +80,13 @@ export class DashboardService {
   /**
    * Overall pass rate across all test runs.
    */
-  private async getPassRate(userId: string): Promise<PassRateGauge> {
-    const runs = await TestRun.find({ userId, status: { $in: ['completed', 'failed'] } })
-      .select('summary')
-      .lean();
-
+  private async getPassRate(runs: TestRunRecord[]): Promise<PassRateGauge> {
     let totalPassed = 0;
     let totalFailed = 0;
 
     for (const run of runs) {
-      totalPassed += run.summary?.totalTestsPassed || 0;
-      totalFailed += run.summary?.totalTestsFailed || 0;
+      totalPassed += run.totalTestsPassed || 0;
+      totalFailed += run.totalTestsFailed || 0;
     }
 
     const total = totalPassed + totalFailed;
@@ -101,27 +101,21 @@ export class DashboardService {
   /**
    * Pass/fail trend over the last 30 days.
    */
-  private async getTrend(userId: string): Promise<TrendPoint[]> {
+  private async getTrend(runs: TestRunRecord[]): Promise<TrendPoint[]> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const cutoffDate = thirtyDaysAgo.toISOString();
 
-    const runs = await TestRun.find({
-      userId,
-      status: { $in: ['completed', 'failed'] },
-      createdAt: { $gte: thirtyDaysAgo },
-    })
-      .select('summary createdAt')
-      .sort({ createdAt: 1 })
-      .lean();
+    const recentRuns = runs.filter((r) => r.createdAt >= cutoffDate).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
     // Group by date
     const dayMap = new Map<string, { passed: number; failed: number }>();
 
-    for (const run of runs) {
-      const date = new Date(run.createdAt).toISOString().split('T')[0]!;
+    for (const run of recentRuns) {
+      const date = run.createdAt.split('T')[0]!;
       const existing = dayMap.get(date) || { passed: 0, failed: 0 };
-      existing.passed += run.summary?.totalTestsPassed || 0;
-      existing.failed += run.summary?.totalTestsFailed || 0;
+      existing.passed += run.totalTestsPassed || 0;
+      existing.failed += run.totalTestsFailed || 0;
       dayMap.set(date, existing);
     }
 
@@ -148,21 +142,15 @@ export class DashboardService {
   /**
    * Top 5 slowest endpoints by average response time.
    */
-  private async getSlowestEndpoints(userId: string): Promise<SlowestEndpoint[]> {
-    const runs = await TestRun.find({
-      userId,
-      status: { $in: ['completed', 'failed'] },
-    })
-      .select('results')
-      .sort({ createdAt: -1 })
-      .limit(50) // Last 50 runs for performance
-      .lean();
+  private async getSlowestEndpoints(runs: TestRunRecord[]): Promise<SlowestEndpoint[]> {
+    // runs are already sorted desc by createdAt
+    const recentRuns = runs.slice(0, 50);
 
     // Aggregate timing per endpoint
     const endpointMap = new Map<string, { totalTiming: number; count: number; method: string; url: string }>();
 
-    for (const run of runs) {
-      for (const result of run.results || []) {
+    for (const run of recentRuns) {
+      for (const result of (run.results as IRequestRunResult[]) || []) {
         const key = `${result.method} ${result.url}`;
         const existing = endpointMap.get(key) || {
           totalTiming: 0,
@@ -190,29 +178,22 @@ export class DashboardService {
   /**
    * Last 10 failed tests across all runs.
    */
-  private async getRecentFailures(userId: string): Promise<RecentFailure[]> {
-    const runs = await TestRun.find({
-      userId,
-      'summary.totalTestsFailed': { $gt: 0 },
-    })
-      .select('collectionName results createdAt')
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean();
+  private async getRecentFailures(runs: TestRunRecord[]): Promise<RecentFailure[]> {
+    const failedRuns = runs.filter((r) => (r.totalTestsFailed || 0) > 0);
 
     const failures: RecentFailure[] = [];
 
-    for (const run of runs) {
-      for (const result of run.results || []) {
+    for (const run of failedRuns) {
+      for (const result of (run.results as IRequestRunResult[]) || []) {
         for (const test of result.testResults || []) {
           if (!test.passed && failures.length < 10) {
             failures.push({
-              runId: String(run._id),
+              runId: run.id,
               collectionName: run.collectionName,
               requestName: result.requestName,
               testName: test.name,
               error: test.error || 'Test failed',
-              failedAt: new Date(run.createdAt).toISOString(),
+              failedAt: run.createdAt,
             });
           }
         }
@@ -226,47 +207,29 @@ export class DashboardService {
   /**
    * Collection health grid — pass rate and last run for each collection.
    */
-  private async getCollectionHealth(userId: string): Promise<CollectionHealth[]> {
-    const collections = await Collection.find({ userId })
-      .select('name')
-      .lean();
+  private async getCollectionHealth(userId: string, runs: TestRunRecord[]): Promise<CollectionHealth[]> {
+    const collections = await dbProvider.collections.listByUser(userId);
 
-    const healthPromises = collections.map(async (col) => {
-      const lastRun = await TestRun.findOne({
-        userId,
-        collectionId: col._id,
-        status: { $in: ['completed', 'failed'] },
-      })
-        .sort({ createdAt: -1 })
-        .select('summary status createdAt')
-        .lean();
-
-      const allRuns = await TestRun.find({
-        userId,
-        collectionId: col._id,
-        status: { $in: ['completed', 'failed'] },
-      })
-        .select('summary')
-        .lean();
+    return collections.map((col) => {
+      const colRuns = runs.filter((r) => r.collectionId === col.id);
+      const lastRun = colRuns[0]; // runs are sorted by descending date already
 
       let totalPassed = 0;
       let totalFailed = 0;
-      for (const run of allRuns) {
-        totalPassed += run.summary?.totalTestsPassed || 0;
-        totalFailed += run.summary?.totalTestsFailed || 0;
+      for (const run of colRuns) {
+        totalPassed += run.totalTestsPassed || 0;
+        totalFailed += run.totalTestsFailed || 0;
       }
       const total = totalPassed + totalFailed;
 
       return {
-        collectionId: String(col._id),
+        collectionId: col.id,
         collectionName: col.name,
         passRate: total > 0 ? Math.round((totalPassed / total) * 100) : 0,
         totalTests: total,
-        lastRunAt: lastRun ? new Date(lastRun.createdAt).toISOString() : null,
+        lastRunAt: lastRun ? lastRun.createdAt : null,
         lastRunStatus: lastRun?.status || null,
       };
     });
-
-    return Promise.all(healthPromises);
   }
 }

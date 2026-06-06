@@ -1,0 +1,185 @@
+.settingsContainer {
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.header {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 16px;
+}
+
+.header h1 {
+  font-size: 24px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  gap: 32px;
+}
+
+.sidebar {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tabBtn {
+  text-align: left;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.tabBtn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.tabBtn.active {
+  background: var(--accent-color);
+  color: white;
+}
+
+.tabContent {
+  flex: 1;
+  max-width: 800px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section h2 {
+  font-size: 20px;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.section p {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.formGroup label {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.formGroup input {
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.formGroup small {
+  color: var(--text-tertiary);
+}
+
+.primaryBtn {
+  align-self: flex-start;
+  padding: 10px 20px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.primaryBtn:hover {
+  opacity: 0.9;
+}
+
+.dangerBtn {
+  padding: 6px 12px;
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.dangerBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.secretsList table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 16px;
+}
+
+.secretsList th, .secretsList td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.secretsList th {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.addSecretForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-secondary);
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.addSecretForm input {
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+}
+
+.error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.emptyState {
+  padding: 32px;
+  text-align: center;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+}

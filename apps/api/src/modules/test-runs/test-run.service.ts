@@ -1,6 +1,30 @@
-import { TestRun, type ITestRun, type IRequestRunResult } from './TestRun.model';
+import { dbProvider } from '../../data/database-provider';
+import type { TestRunRecord } from '@atx/db';
+import crypto from 'crypto';
 
 // ===== Types =====
+
+export interface ITestResult {
+  name: string;
+  passed: boolean;
+  error?: string;
+  duration: number;
+}
+
+export interface IRequestRunResult {
+  requestId: string;
+  requestName: string;
+  method: string;
+  url: string;
+  status: number;
+  statusText: string;
+  timing: number;
+  size: number;
+  testResults: ITestResult[];
+  totalPassed: number;
+  totalFailed: number;
+  error?: string;
+}
 
 interface CreateTestRunParams {
   userId: string;
@@ -20,70 +44,59 @@ export class TestRunService {
   /**
    * Create a new test run record (status: running).
    */
-  async create(params: CreateTestRunParams): Promise<ITestRun> {
-    const run = new TestRun({
+  async create(params: CreateTestRunParams): Promise<TestRunRecord> {
+    return dbProvider.testRuns.create({
+      id: crypto.randomUUID(),
       userId: params.userId,
       collectionId: params.collectionId,
       collectionName: params.collectionName,
-      environmentId: params.environmentId || undefined,
+      environmentId: params.environmentId,
       trigger: params.trigger || 'manual',
-      status: 'running',
-      results: [],
-      summary: {
-        totalRequests: 0,
-        completedRequests: 0,
-        totalTestsPassed: 0,
-        totalTestsFailed: 0,
-        totalDuration: 0,
-      },
-      startedAt: new Date(),
     });
-    return run.save();
   }
 
   /**
    * Append a request result to an existing run and update the summary.
    */
-  async addResult(runId: string, result: IRequestRunResult): Promise<void> {
-    await TestRun.updateOne(
-      { _id: runId },
-      {
-        $push: { results: result },
-        $inc: {
-          'summary.completedRequests': 1,
-          'summary.totalTestsPassed': result.totalPassed,
-          'summary.totalTestsFailed': result.totalFailed,
-          'summary.totalDuration': result.timing,
-        },
-      },
-    );
+  async addResult(userId: string, runId: string, result: IRequestRunResult): Promise<void> {
+    const run = await dbProvider.testRuns.getById({ id: runId, userId });
+    if (!run) return;
+
+    const newResults = [...run.results, result];
+    await dbProvider.testRuns.update({
+      id: runId,
+      userId,
+      results: newResults,
+      completedRequests: run.completedRequests + 1,
+      totalTestsPassed: run.totalTestsPassed + result.totalPassed,
+      totalTestsFailed: run.totalTestsFailed + result.totalFailed,
+      totalDuration: run.totalDuration + result.timing,
+    });
   }
 
   /**
    * Mark a run as completed.
    */
   async complete(
+    userId: string,
     runId: string,
     status: 'completed' | 'failed' | 'cancelled',
     totalRequests: number,
   ): Promise<void> {
-    await TestRun.updateOne(
-      { _id: runId },
-      {
-        $set: {
-          status,
-          'summary.totalRequests': totalRequests,
-          completedAt: new Date(),
-        },
-      },
-    );
+    await dbProvider.testRuns.update({
+      id: runId,
+      userId,
+      status,
+      totalRequests,
+      completedAt: new Date().toISOString(),
+    });
   }
 
   /**
    * Get a single run by ID.
    */
-  async getById(userId: string, runId: string): Promise<ITestRun | null> {
-    return TestRun.findOne({ _id: runId, userId });
+  async getById(userId: string, runId: string): Promise<TestRunRecord | null> {
+    return dbProvider.testRuns.getById({ id: runId, userId });
   }
 
   /**
@@ -93,20 +106,15 @@ export class TestRunService {
     userId: string,
     collectionId: string,
     limit = 20,
-  ): Promise<ITestRun[]> {
-    return TestRun.find({ userId, collectionId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean() as unknown as ITestRun[];
+  ): Promise<TestRunRecord[]> {
+    const allRuns = await dbProvider.testRuns.listByUser({ userId, limit: 1000 });
+    return allRuns.filter(r => r.collectionId === collectionId).slice(0, limit);
   }
 
   /**
    * List all runs for a user (most recent first).
    */
-  async listByUser(userId: string, limit = 50): Promise<ITestRun[]> {
-    return TestRun.find({ userId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean() as unknown as ITestRun[];
+  async listByUser(userId: string, limit = 50): Promise<TestRunRecord[]> {
+    return dbProvider.testRuns.listByUser({ userId, limit });
   }
 }

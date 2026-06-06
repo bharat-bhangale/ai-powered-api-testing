@@ -12,6 +12,7 @@
 import { app, ipcMain } from 'electron';
 import log from 'electron-log';
 import { createMainWindow, focusMainWindow, getMainWindow } from './window';
+import { initializeKeychain } from './keychain';
 import {
   startLocalServer,
   stopLocalServer,
@@ -67,6 +68,9 @@ if (!gotLock) {
         win.webContents.send(CHANNEL_SERVER_READY, payload);
       }
     });
+
+    // Initialize keychain before starting local server
+    await initializeKeychain();
 
     // Start the local API server. Waits until it sends { type: 'ready', port }
     // and the /health poll succeeds before returning.

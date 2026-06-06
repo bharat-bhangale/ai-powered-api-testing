@@ -3,6 +3,9 @@ import { Collection } from '../models/Collection.model';
 import { SavedRequest } from '../models/Request.model';
 import { Environment } from '../models/Environment.model';
 import { History } from '../models/History.model';
+import { TestRun } from '../modules/test-runs/TestRun.model';
+import { Schedule } from '../modules/schedules/Schedule.model';
+import { SchemaContract } from '../modules/schema-validator/SchemaContract.model';
 import mongoose from 'mongoose';
 import type { AtxDataProvider } from './database-provider';
 import type { 
@@ -11,7 +14,10 @@ import type {
   CollectionFolderRecord, CreateFolderInput, UpdateFolderInput, ReorderFolderInput,
   RequestRecord, CreateRequestInput, UpdateRequestInput, MoveRequestInput,
   EnvironmentRecord, CreateEnvironmentInput, UpdateEnvironmentInput,
-  HistoryRecord, RecordHistoryInput, SearchHistoryInput
+  HistoryRecord, RecordHistoryInput, SearchHistoryInput,
+  TestRunRecord, CreateTestRunInput, UpdateTestRunInput,
+  ScheduleRecord, CreateScheduleInput, UpdateScheduleInput,
+  SchemaContractRecord, CreateSchemaContractInput, UpdateSchemaContractInput
 } from '@atx/db';
 import type { HttpMethod, AuthConfig } from '@atx/shared/src/types/request.types';
 
@@ -59,6 +65,66 @@ function mapHistoryToRecord(h: any): HistoryRecord {
     response: h.response,
     executedAt: h.executedAt.toISOString(),
     createdAt: h._id.getTimestamp().toISOString(),
+  };
+}
+
+function mapTestRunToRecord(tr: any): TestRunRecord {
+  return {
+    id: tr._id.toString(),
+    userId: tr.userId.toString(),
+    collectionId: tr.collectionId.toString(),
+    collectionName: tr.collectionName,
+    environmentId: tr.environmentId?.toString(),
+    trigger: tr.trigger,
+    status: tr.status,
+    results: tr.results || [],
+    totalRequests: tr.summary?.totalRequests || 0,
+    completedRequests: tr.summary?.completedRequests || 0,
+    totalTestsPassed: tr.summary?.totalTestsPassed || 0,
+    totalTestsFailed: tr.summary?.totalTestsFailed || 0,
+    totalDuration: tr.summary?.totalDuration || 0,
+    startedAt: tr.startedAt.toISOString(),
+    completedAt: tr.completedAt?.toISOString(),
+    createdAt: tr.createdAt.toISOString(),
+    updatedAt: tr.updatedAt.toISOString(),
+  };
+}
+
+function mapScheduleToRecord(s: any): ScheduleRecord {
+  return {
+    id: s._id.toString(),
+    userId: s.userId.toString(),
+    collectionId: s.collectionId.toString(),
+    collectionName: s.collectionName,
+    environmentId: s.environmentId?.toString(),
+    cronExpression: s.cronExpression,
+    label: s.label,
+    enabled: s.enabled,
+    webhookUrl: s.webhookUrl,
+    notifyEmail: s.notifyEmail,
+    notifyDesktop: true, // MongoDB implementation didn't have this, default to true
+    lastRunAt: s.lastRunAt?.toISOString(),
+    lastRunStatus: s.lastRunStatus,
+    lastRunId: s.lastRunId?.toString(),
+    nextRunAt: s.nextRunAt?.toISOString(),
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+  };
+}
+
+function mapSchemaContractToRecord(sc: any): SchemaContractRecord {
+  return {
+    id: sc._id.toString(),
+    userId: sc.userId.toString(),
+    endpointKey: sc.endpointKey,
+    method: sc.method,
+    pathPattern: sc.pathPattern,
+    contractSchema: sc.contractSchema,
+    sampleCount: sc.sampleCount,
+    violations: sc.violations || [],
+    lastInferredAt: sc.lastInferredAt.toISOString(),
+    createdAt: sc.createdAt.toISOString(),
+    updatedAt: sc.updatedAt.toISOString(),
   };
 }
 
@@ -419,9 +485,169 @@ export const mongoProvider: AtxDataProvider = {
     }
   },
 
-  testRuns: {} as any,
-  schedules: {} as any,
-  schemaContracts: {} as any,
+  testRuns: {
+    listByUser: async (params: { userId: string; limit?: number }): Promise<TestRunRecord[]> => {
+      const runs = await TestRun.find({ userId: params.userId })
+        .sort({ createdAt: -1 })
+        .limit(params.limit ?? 50)
+        .lean();
+      return runs.map(mapTestRunToRecord);
+    },
+    getById: async (params: { id: string; userId: string }): Promise<TestRunRecord | null> => {
+      const run = await TestRun.findOne({ _id: params.id, userId: params.userId }).lean();
+      return run ? mapTestRunToRecord(run) : null;
+    },
+    create: async (input: CreateTestRunInput): Promise<TestRunRecord> => {
+      const run = new TestRun({
+        _id: input.id,
+        userId: input.userId,
+        collectionId: input.collectionId,
+        collectionName: input.collectionName,
+        environmentId: input.environmentId,
+        trigger: input.trigger,
+        status: 'running',
+        results: [],
+        summary: {
+          totalRequests: 0,
+          completedRequests: 0,
+          totalTestsPassed: 0,
+          totalTestsFailed: 0,
+          totalDuration: 0,
+        },
+        startedAt: new Date(),
+      });
+      await run.save();
+      return mapTestRunToRecord(run);
+    },
+    update: async (input: UpdateTestRunInput): Promise<TestRunRecord> => {
+      const patch: any = {};
+      if (input.status !== undefined) patch.status = input.status;
+      if (input.results !== undefined) patch.results = input.results;
+      if (input.totalRequests !== undefined) patch['summary.totalRequests'] = input.totalRequests;
+      if (input.completedRequests !== undefined) patch['summary.completedRequests'] = input.completedRequests;
+      if (input.totalTestsPassed !== undefined) patch['summary.totalTestsPassed'] = input.totalTestsPassed;
+      if (input.totalTestsFailed !== undefined) patch['summary.totalTestsFailed'] = input.totalTestsFailed;
+      if (input.totalDuration !== undefined) patch['summary.totalDuration'] = input.totalDuration;
+      if (input.completedAt !== undefined) patch.completedAt = new Date(input.completedAt);
+
+      const run = await TestRun.findOneAndUpdate(
+        { _id: input.id, userId: input.userId },
+        { $set: patch },
+        { new: true }
+      ).lean();
+      if (!run) throw new Error('Test run not found');
+      return mapTestRunToRecord(run);
+    },
+    delete: async (params: { id: string; userId: string }): Promise<void> => {
+      await TestRun.deleteOne({ _id: params.id, userId: params.userId });
+    },
+  },
+  schedules: {
+    listByUser: async (userId: string): Promise<ScheduleRecord[]> => {
+      const scheds = await Schedule.find({ userId }).lean();
+      return scheds.map(mapScheduleToRecord);
+    },
+    listDue: async (): Promise<ScheduleRecord[]> => {
+      const scheds = await Schedule.find({
+        enabled: true,
+        nextRunAt: { $lte: new Date() },
+      }).lean();
+      return scheds.map(mapScheduleToRecord);
+    },
+    getById: async (params: { id: string; userId: string }): Promise<ScheduleRecord | null> => {
+      const sched = await Schedule.findOne({ _id: params.id, userId: params.userId }).lean();
+      return sched ? mapScheduleToRecord(sched) : null;
+    },
+    create: async (input: CreateScheduleInput): Promise<ScheduleRecord> => {
+      const sched = new Schedule({
+        _id: input.id,
+        userId: input.userId,
+        collectionId: input.collectionId,
+        collectionName: input.collectionName,
+        environmentId: input.environmentId,
+        cronExpression: input.cronExpression,
+        label: input.label,
+        enabled: input.enabled ?? true,
+        webhookUrl: input.webhookUrl,
+        notifyEmail: input.notifyEmail,
+        nextRunAt: input.nextRunAt ? new Date(input.nextRunAt) : undefined,
+      });
+      await sched.save();
+      return mapScheduleToRecord(sched);
+    },
+    update: async (input: UpdateScheduleInput): Promise<ScheduleRecord> => {
+      const patch: any = {};
+      if (input.collectionName !== undefined) patch.collectionName = input.collectionName;
+      if (input.environmentId !== undefined) patch.environmentId = input.environmentId;
+      if (input.cronExpression !== undefined) patch.cronExpression = input.cronExpression;
+      if (input.label !== undefined) patch.label = input.label;
+      if (input.enabled !== undefined) patch.enabled = input.enabled;
+      if (input.webhookUrl !== undefined) patch.webhookUrl = input.webhookUrl;
+      if (input.notifyEmail !== undefined) patch.notifyEmail = input.notifyEmail;
+      if (input.lastRunAt !== undefined) patch.lastRunAt = new Date(input.lastRunAt);
+      if (input.lastRunStatus !== undefined) patch.lastRunStatus = input.lastRunStatus;
+      if (input.lastRunId !== undefined) patch.lastRunId = input.lastRunId;
+      if (input.nextRunAt !== undefined) patch.nextRunAt = new Date(input.nextRunAt);
+
+      const sched = await Schedule.findOneAndUpdate(
+        { _id: input.id, userId: input.userId },
+        { $set: patch },
+        { new: true }
+      ).lean();
+      if (!sched) throw new Error('Schedule not found');
+      return mapScheduleToRecord(sched);
+    },
+    delete: async (params: { id: string; userId: string }): Promise<void> => {
+      await Schedule.deleteOne({ _id: params.id, userId: params.userId });
+    },
+  },
+  schemaContracts: {
+    listByUser: async (userId: string): Promise<SchemaContractRecord[]> => {
+      const contracts = await SchemaContract.find({ userId }).lean();
+      return contracts.map(mapSchemaContractToRecord);
+    },
+    getById: async (params: { id: string; userId: string }): Promise<SchemaContractRecord | null> => {
+      const contract = await SchemaContract.findOne({ _id: params.id, userId: params.userId }).lean();
+      return contract ? mapSchemaContractToRecord(contract) : null;
+    },
+    getByEndpointKey: async (params: { endpointKey: string; userId: string }): Promise<SchemaContractRecord | null> => {
+      const contract = await SchemaContract.findOne({ endpointKey: params.endpointKey, userId: params.userId }).lean();
+      return contract ? mapSchemaContractToRecord(contract) : null;
+    },
+    create: async (input: CreateSchemaContractInput): Promise<SchemaContractRecord> => {
+      const contract = new SchemaContract({
+        _id: input.id,
+        userId: input.userId,
+        endpointKey: input.endpointKey,
+        method: input.method,
+        pathPattern: input.pathPattern,
+        contractSchema: input.contractSchema,
+        sampleCount: input.sampleCount ?? 0,
+        violations: [],
+        lastInferredAt: new Date(input.lastInferredAt),
+      });
+      await contract.save();
+      return mapSchemaContractToRecord(contract);
+    },
+    update: async (input: UpdateSchemaContractInput): Promise<SchemaContractRecord> => {
+      const patch: any = {};
+      if (input.contractSchema !== undefined) patch.contractSchema = input.contractSchema;
+      if (input.sampleCount !== undefined) patch.sampleCount = input.sampleCount;
+      if (input.violations !== undefined) patch.violations = input.violations;
+      if (input.lastInferredAt !== undefined) patch.lastInferredAt = new Date(input.lastInferredAt);
+
+      const contract = await SchemaContract.findOneAndUpdate(
+        { _id: input.id, userId: input.userId },
+        { $set: patch },
+        { new: true }
+      ).lean();
+      if (!contract) throw new Error('Schema contract not found');
+      return mapSchemaContractToRecord(contract);
+    },
+    delete: async (params: { id: string; userId: string }): Promise<void> => {
+      await SchemaContract.deleteOne({ _id: params.id, userId: params.userId });
+    },
+  },
   secretReferences: {} as any,
   certificates: {} as any,
   backups: {} as any,

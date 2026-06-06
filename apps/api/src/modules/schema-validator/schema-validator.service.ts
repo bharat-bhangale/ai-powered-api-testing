@@ -1,5 +1,6 @@
-import { SchemaContract, type ISchemaContract } from './SchemaContract.model';
-import { History } from '../../models/History.model';
+import { dbProvider } from '../../data/database-provider';
+import type { SchemaContractRecord } from '@atx/db';
+import crypto from 'crypto';
 
 // ===== Types =====
 
@@ -46,7 +47,7 @@ export class SchemaValidatorService {
     if (!body || typeof body !== 'object') return [];
 
     const endpointKey = this.buildEndpointKey(method, url);
-    const existing = await SchemaContract.findOne({ userId, endpointKey });
+    const existing = await dbProvider.schemaContracts.getByEndpointKey({ userId, endpointKey });
 
     if (!existing) {
       // First time seeing this endpoint — start collecting
@@ -56,16 +57,16 @@ export class SchemaValidatorService {
 
     if (existing.sampleCount < MIN_SAMPLES) {
       // Still collecting samples — merge into the schema
-      await this.mergeIntoSchema(existing, body);
+      await this.mergeIntoSchema(userId, existing, body);
       return [];
     }
 
     // We have a contract — validate the new response against it
-    const violations = this.validate(body, existing.contractSchema, '');
+    const violations = this.validate(body, existing.contractSchema as Record<string, unknown>, '');
 
     // Store violations
     if (violations.length > 0) {
-      const now = new Date();
+      const now = new Date().toISOString();
       const newViolations = violations.map((v) => ({
         ...v,
         detectedAt: now,
@@ -74,11 +75,16 @@ export class SchemaValidatorService {
       // Keep only the latest MAX_VIOLATIONS
       const combined = [...(existing.violations || []), ...newViolations];
       existing.violations = combined.slice(-MAX_VIOLATIONS) as typeof existing.violations;
-      await existing.save();
+      
+      await dbProvider.schemaContracts.update({
+        id: existing.id,
+        userId,
+        violations: existing.violations,
+      });
     }
 
     // Also continue learning — merge schema for stability
-    await this.mergeIntoSchema(existing, body);
+    await this.mergeIntoSchema(userId, existing, body);
 
     return violations;
   }
@@ -90,76 +96,80 @@ export class SchemaValidatorService {
     userId: string,
     method: string,
     url: string,
-  ): Promise<ISchemaContract | null> {
+  ): Promise<SchemaContractRecord | null> {
     const endpointKey = this.buildEndpointKey(method, url);
-    return SchemaContract.findOne({ userId, endpointKey });
+    return dbProvider.schemaContracts.getByEndpointKey({ userId, endpointKey });
   }
 
   /**
    * List all contracts for a user.
    */
-  async listContracts(userId: string): Promise<ISchemaContract[]> {
-    return SchemaContract.find({ userId })
-      .sort({ updatedAt: -1 })
-      .lean() as unknown as ISchemaContract[];
+  async listContracts(userId: string): Promise<SchemaContractRecord[]> {
+    const contracts = await dbProvider.schemaContracts.listByUser(userId);
+    return contracts.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   /**
    * Delete a contract (reset inference).
    */
   async deleteContract(userId: string, contractId: string): Promise<boolean> {
-    const result = await SchemaContract.deleteOne({ _id: contractId, userId });
-    return result.deletedCount > 0;
+    await dbProvider.schemaContracts.delete({ id: contractId, userId });
+    return true;
   }
 
   /**
    * Force re-inference from history for an endpoint.
    */
-  async reInfer(userId: string, method: string, url: string): Promise<ISchemaContract | null> {
+  async reInfer(userId: string, method: string, url: string): Promise<SchemaContractRecord | null> {
     const endpointKey = this.buildEndpointKey(method, url);
 
-    // Delete existing contract
-    await SchemaContract.deleteOne({ userId, endpointKey });
+    // Delete existing contract if any
+    const existing = await dbProvider.schemaContracts.getByEndpointKey({ userId, endpointKey });
+    if (existing) {
+      await dbProvider.schemaContracts.delete({ id: existing.id, userId });
+    }
 
     // Load recent successful history entries
-    const histories = await History.find({
-      userId,
-      'request.method': method.toUpperCase(),
-      'response.status': { $gte: 200, $lt: 300 },
-    })
-      .sort({ executedAt: -1 })
-      .limit(10)
-      .lean();
-
-    // Filter to matching URL paths
+    const allHistory = await dbProvider.history.search({ userId, limit: 1000 });
+    
+    // Filter to successful GET/POST etc matching URL path
     const pathPattern = this.extractPath(url);
-    const matching = histories.filter((h) => {
-      const hPath = this.extractPath(h.request.url);
+    const targetMethod = method.toUpperCase();
+    
+    const matching = allHistory.filter((h) => {
+      // Must be successful (2xx)
+      const resStatus = (h.response as any)?.status;
+      if (typeof resStatus !== 'number' || resStatus < 200 || resStatus >= 300) return false;
+      
+      // Must match method
+      if ((h.request as any)?.method !== targetMethod) return false;
+      
+      // Must match URL path
+      if (!(h.request as any)?.url) return false;
+      const hPath = this.extractPath((h.request as any).url);
       return hPath === pathPattern;
-    });
+    }).slice(0, 10); // take up to 10 recent
 
     if (matching.length < MIN_SAMPLES) return null;
 
     // Infer schema from all matching responses
     let schema: Record<string, unknown> = {};
     for (const h of matching) {
-      if (h.response?.body && typeof h.response.body === 'object') {
-        schema = this.mergeSchemas(schema, this.inferSchema(h.response.body));
+      if ((h.response as any)?.body && typeof (h.response as any).body === 'object') {
+        schema = this.mergeSchemas(schema, this.inferSchema((h.response as any).body));
       }
     }
 
-    const contract = new SchemaContract({
+    return dbProvider.schemaContracts.create({
+      id: crypto.randomUUID(),
       userId,
       endpointKey,
       method: method.toUpperCase(),
       pathPattern,
       contractSchema: schema,
       sampleCount: matching.length,
-      lastInferredAt: new Date(),
-      violations: [],
+      lastInferredAt: new Date().toISOString(),
     });
-
-    return contract.save();
   }
 
   // ===== Private Methods =====
@@ -187,30 +197,36 @@ export class SchemaValidatorService {
     body: unknown,
   ): Promise<void> {
     const schema = this.inferSchema(body);
-    await SchemaContract.create({
+    await dbProvider.schemaContracts.create({
+      id: crypto.randomUUID(),
       userId,
       endpointKey,
       method: method.toUpperCase(),
       pathPattern: this.extractPath(url),
       contractSchema: schema,
       sampleCount: 1,
-      lastInferredAt: new Date(),
-      violations: [],
+      lastInferredAt: new Date().toISOString(),
     });
   }
 
   private async mergeIntoSchema(
-    contract: ISchemaContract,
+    userId: string,
+    contract: SchemaContractRecord,
     body: unknown,
   ): Promise<void> {
     const newSchema = this.inferSchema(body);
-    contract.contractSchema = this.mergeSchemas(
+    const mergedSchema = this.mergeSchemas(
       contract.contractSchema as Record<string, unknown>,
       newSchema,
     );
-    contract.sampleCount += 1;
-    contract.lastInferredAt = new Date();
-    await contract.save();
+    
+    await dbProvider.schemaContracts.update({
+      id: contract.id,
+      userId,
+      contractSchema: mergedSchema,
+      sampleCount: contract.sampleCount + 1,
+      lastInferredAt: new Date().toISOString(),
+    });
   }
 
   /**

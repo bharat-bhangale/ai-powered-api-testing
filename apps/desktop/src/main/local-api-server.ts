@@ -28,6 +28,7 @@ import { fork, type ChildProcess } from 'child_process';
 import { app } from 'electron';
 import log from 'electron-log';
 import type { ServerStatus, ServerReadyPayload } from '../shared/ipc-schemas';
+import { getMasterKey } from './keychain';
 
 // ===== State =====
 
@@ -98,6 +99,8 @@ export async function startLocalServer(): Promise<void> {
     NODE_ENV: app.isPackaged ? 'production' : 'development',
     // Ensure no leftover MONGODB_URI forces a connection attempt in desktop mode
     MONGODB_URI: '',
+    ATX_MASTER_KEY: getMasterKey(),
+    ATX_USER_DATA_PATH: app.getPath('userData'),
   };
 
   const forkOptions = app.isPackaged

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, lte } from 'drizzle-orm';
 import { getDb } from '../client';
 import { schedules, type ScheduleRow, type InsertScheduleRow } from '../schema';
 
@@ -86,6 +86,16 @@ export const schedulesRepository = {
   async listByUser(userId: string): Promise<ScheduleRecord[]> {
     const db = getDb();
     const rows = await db.select().from(schedules).where(eq(schedules.userId, userId));
+    return rows.map(rowToRecord);
+  },
+
+  async listDue(): Promise<ScheduleRecord[]> {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const rows = await db
+      .select()
+      .from(schedules)
+      .where(and(eq(schedules.enabled, true), lte(schedules.nextRunAt, now)));
     return rows.map(rowToRecord);
   },
 
