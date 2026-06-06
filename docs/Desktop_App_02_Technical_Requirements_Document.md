@@ -1,353 +1,557 @@
-# ATX Desktop Application — Technical Requirements Document (TRD)
+# ATX Desktop Application - Technical Requirements Document
 
-> **Version:** 1.0  
-> **Date:** June 2026
+Version: 2.0
+Date: June 2026
+Product: ATX Desktop
+Audience: AI coding agents and engineers implementing the desktop app
 
----
+## 1. Architecture Goal
 
-## 1. Architecture Overview
+Build ATX Desktop as an Electron app that reuses the existing React 19 + Vite frontend and Express 5 + TypeScript backend. The first implementation proves web parity in a desktop shell. The final V1 desktop implementation runs local-first with SQLite and Drizzle while preserving web mode with MongoDB Atlas and JWT auth.
 
-### 1.1 High-Level Architecture
+The architecture must keep the existing ATX rules:
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Electron Shell                     │
-│  ┌──────────────────┐  ┌──────────────────────────┐ │
-│  │   Main Process   │  │     Renderer Process     │ │
-│  │                  │  │                          │ │
-│  │  - Window Mgmt   │  │  ┌────────────────────┐  │ │
-│  │  - IPC Handlers  │  │  │   React Frontend   │  │ │
-│  │  - Native Menus  │  │  │   (Existing Web)   │  │ │
-│  │  - Auto-Updater  │  │  │                    │  │ │
-│  │  - System Tray   │  │  │  - Request Builder │  │ │
-│  │  - File Dialogs  │  │  │  - Response Viewer │  │ │
-│  │  - Cert Manager  │  │  │  - Sidebar/Router  │  │ │
-│  │                  │  │  │  - AI Chat Panel   │  │ │
-│  │  ┌────────────┐  │  │  │  - Dashboard       │  │ │
-│  │  │ Local API  │  │  │  │  - Test Runner     │  │ │
-│  │  │  Server    │  │  │  └────────────────────┘  │ │
-│  │  │ (Express)  │  │  │                          │ │
-│  │  │  Port:0    │  │  │  Communicates via HTTP   │ │
-│  │  └────────────┘  │  │  to localhost:{port}     │ │
-│  └──────────────────┘  └──────────────────────────┘ │
-│                                                      │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │              Data Layer (Local)                  │ │
-│  │  SQLite (collections, requests, environments)    │ │
-│  │  Flat Files (history, test runs, preferences)    │ │
-│  │  OS Keychain (API keys, tokens, certificates)    │ │
-│  └──────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────┘
-```
+- TypeScript strict mode in all new files.
+- Named exports for new modules and components.
+- CSS Modules and CSS variables for styling.
+- Zod validation for API request bodies and IPC payloads.
+- Backend module pattern: routes to thin controller to thick service.
+- Services receive typed params and return typed results. Services do not import Express types.
+- API response envelope remains `{ success: boolean, data?: T, error?: { code: string, message: string } }`.
 
-### 1.2 Process Model
+## 2. Process Model
 
-| Process | Role | Technology |
-|:--------|:-----|:-----------|
-| **Main Process** | Window management, IPC, native APIs, file system, auto-updates | Electron Main (Node.js) |
-| **Renderer Process** | UI rendering, user interaction | Electron Renderer (Chromium + React) |
-| **Local API Server** | Business logic, AI gateway, data access | Express.js (spawned by Main) |
-
-### 1.3 Data Flow
-
-```
-User Action → React Component → Zustand Store → HTTP Request
-     → Local Express Server → Service Layer → SQLite/AI Gateway
-     → Response → Store Update → React Re-render
+```text
+ATX Desktop
+|
++-- Electron main process
+|   |
+|   +-- creates BrowserWindow
+|   +-- owns native menu, tray, updater, file dialogs, keychain access
+|   +-- starts local Express API on 127.0.0.1 with a dynamic port
+|   +-- exposes safe IPC handlers through preload
+|
++-- Electron preload process
+|   |
+|   +-- exposes window.atxDesktop
+|   +-- validates renderer-to-main payloads where practical
+|   +-- never exposes raw Node or Electron modules
+|
++-- Electron renderer process
+|   |
+|   +-- runs existing React/Vite UI
+|   +-- obtains local API URL through window.atxDesktop.getApiBaseUrl()
+|   +-- uses Zustand and TanStack Query as the existing app does
+|
++-- Local API process
+    |
+    +-- runs existing Express app
+    +-- uses runtime mode to choose MongoDB or SQLite data access
+    +-- executes API requests through the existing executor and SSRF guard
 ```
 
----
+## 3. Workspace Structure
 
-## 2. Technology Stack
+The implementation must use this repo structure.
 
-### 2.1 Desktop Shell
-
-| Layer | Technology | Version | Justification |
-|:------|:-----------|:--------|:-------------|
-| Desktop Framework | Electron | 33+ | Mature, cross-platform, full Node.js access |
-| Build Tool | electron-builder | 25+ | Code signing, auto-update, multi-platform |
-| Auto-Update | electron-updater | 6+ | GitHub Releases integration |
-| IPC | Electron IPC | Built-in | Secure main↔renderer communication |
-
-### 2.2 Frontend (Existing — Migrated)
-
-| Layer | Technology | Version | Notes |
-|:------|:-----------|:--------|:------|
-| UI Framework | React | 19+ | Existing codebase |
-| Build Tool | Vite | 6+ | Fast HMR, Electron plugin available |
-| State Management | Zustand | 5+ | 8 existing stores |
-| Routing | React Router | 7+ | Client-side, hash router for Electron |
-| Styling | CSS Modules | — | No Tailwind, existing design system |
-| HTTP Client | Axios | 1.7+ | With interceptors for auth refresh |
-| Icons | Lucide React | Latest | Existing icon set |
-| Toasts | Sonner | Latest | Existing notification system |
-| Code Editor | Monaco Editor | Latest | Test script editing |
-| Data Fetching | TanStack Query | 5+ | Caching, background refresh |
-
-### 2.3 Backend (Existing — Bundled Locally)
-
-| Layer | Technology | Version | Notes |
-|:------|:-----------|:--------|:------|
-| Runtime | Node.js | 22+ | LTS, bundled with Electron |
-| Framework | Express | 5+ | Existing API server |
-| Database | SQLite (better-sqlite3) | Latest | Replaces MongoDB for local-first |
-| ORM/Query | Drizzle ORM | Latest | Type-safe, lightweight, SQLite support |
-| AI Gateway | Google Gemini SDK | Latest | User-provided API key |
-| Validation | Zod | 3+ | All AI outputs validated |
-| Auth | Simplified | — | No JWT needed — local app, optional passphrase |
-| Proxy | node-fetch / undici | Latest | With proxy-agent for system proxy |
-
-### 2.4 Tooling
-
-| Tool | Purpose |
-|:-----|:--------|
-| TypeScript | Strict mode across all packages |
-| ESLint + Prettier | Code quality |
-| Vitest | Unit/integration tests |
-| Playwright | E2E testing for Electron |
-| GitHub Actions | CI/CD for multi-platform builds |
-| electron-builder | Installers: .exe, .dmg, .AppImage, .deb |
-
----
-
-## 3. Project Structure
-
-```
-ai-powered-api-testing/
-├── apps/
-│   ├── desktop/                    # NEW — Electron shell
-│   │   ├── src/
-│   │   │   ├── main/               # Electron main process
-│   │   │   │   ├── index.ts        # Entry point — creates window
-│   │   │   │   ├── ipc-handlers.ts # IPC message handlers
-│   │   │   │   ├── menu.ts         # Native menu bar
-│   │   │   │   ├── tray.ts         # System tray icon
-│   │   │   │   ├── auto-updater.ts # Electron auto-update logic
-│   │   │   │   ├── server.ts       # Spawns local Express server
-│   │   │   │   ├── file-dialogs.ts # Native open/save file dialogs
-│   │   │   │   └── cert-manager.ts # Client certificate handling
-│   │   │   ├── preload/
-│   │   │   │   └── index.ts        # Preload script (context bridge)
-│   │   │   └── shared/
-│   │   │       └── ipc-channels.ts # Type-safe IPC channel names
-│   │   ├── resources/              # App icons, installer assets
-│   │   │   ├── icon.ico
-│   │   │   ├── icon.icns
-│   │   │   └── icon.png
-│   │   ├── electron-builder.yml    # Build/packaging config
-│   │   ├── package.json
-│   │   └── tsconfig.json
-│   │
-│   ├── api/                        # EXISTING — Express backend
-│   │   └── src/
-│   │       ├── config/
-│   │       │   ├── env.ts          # MODIFY — support SQLite mode
-│   │       │   └── database.ts     # MODIFY — SQLite connection
-│   │       ├── models/             # MODIFY — Drizzle schemas
-│   │       └── modules/            # EXISTING — 15 modules
-│   │
-│   └── web/                        # EXISTING — React frontend
-│       └── src/
-│           ├── app/
-│           │   └── router.tsx      # MODIFY — HashRouter for Electron
-│           ├── components/         # EXISTING — 12 component dirs
-│           ├── stores/             # EXISTING — 8 Zustand stores
-│           └── services/
-│               └── api.ts          # MODIFY — dynamic base URL
-│
-├── packages/
-│   ├── shared/                     # Shared types between apps
-│   └── db/                         # NEW — Drizzle schema + migrations
-│       ├── schema.ts
-│       ├── migrations/
-│       └── index.ts
-│
-├── docs/                           # Documentation (this file)
-├── tests/                          # E2E tests
-└── tooling/                        # ESLint, tsconfig presets
+```text
+apps/
+  api/
+    src/
+      config/
+        env.ts
+        database.ts
+        runtime.ts
+      data/
+        database-provider.ts
+        mongo-provider.ts
+        sqlite-provider.ts
+      modules/
+        ai/
+        auth/
+        collections/
+        collection-runner/
+        dashboard/
+        environment-matrix/
+        environments/
+        executor/
+        history/
+        import/
+        requests/
+        schedules/
+        schema-validator/
+        test-runner/
+        test-runs/
+  desktop/
+    src/
+      main/
+        index.ts
+        window.ts
+        local-api-server.ts
+        menu.ts
+        tray.ts
+        updater.ts
+        file-dialogs.ts
+        keychain.ts
+        notifications.ts
+        proxy.ts
+        certificates.ts
+      preload/
+        index.ts
+      shared/
+        desktop-api.types.ts
+        ipc-channels.ts
+        ipc-schemas.ts
+    resources/
+      icon.ico
+      icon.icns
+      icon.png
+    electron-builder.yml
+    package.json
+    tsconfig.json
+  web/
+    src/
+      services/
+        api.ts
+      app/
+        App.tsx
+        router.tsx
+packages/
+  db/
+    src/
+      client.ts
+      schema.ts
+      migrations.ts
+      repositories/
+  shared/
+  utils/
 ```
 
----
+Notes:
 
-## 4. Data Storage Strategy
+- `packages/db` is new and is used by desktop mode for SQLite and Drizzle.
+- Web mode may keep Mongoose models while the data provider is introduced.
+- New desktop services must not import from `apps/web`.
+- Renderer desktop integration should live in a small web-side adapter, not scattered across components.
 
-### 4.1 Database: SQLite (replacing MongoDB)
+## 4. Technology Stack
 
-**Why SQLite:**
-- Zero-config, single file, no separate server
-- Perfect for desktop apps (used by VS Code, Figma, 1Password)
-- `better-sqlite3` is synchronous and fast (no async overhead)
-- File can be backed up by simply copying
+| Layer | Required technology |
+|:--|:--|
+| Desktop shell | Electron 33 or later |
+| Desktop build | electron-builder |
+| Auto-update | electron-updater |
+| Renderer | Existing React 19 + Vite 6 app |
+| UI state | Existing Zustand stores |
+| Server state | Existing TanStack Query setup |
+| Backend | Existing Express 5 + TypeScript API |
+| Web database | Existing MongoDB Atlas + Mongoose 8 |
+| Desktop database | SQLite + Drizzle ORM |
+| SQLite driver | `better-sqlite3` |
+| Secrets | OS keychain through a maintained keychain package |
+| Validation | Zod |
+| Tests | Vitest, plus Playwright Electron for desktop E2E |
 
-**Database file location:**
-```
-Windows: %APPDATA%/atx-desktop/data.db
-macOS:   ~/Library/Application Support/atx-desktop/data.db
-Linux:   ~/.config/atx-desktop/data.db
-```
+## 5. Runtime Modes
 
-### 4.2 Schema Migration from MongoDB to SQLite
+Add a required runtime mode concept.
 
-| MongoDB Model | SQLite Table | Key Changes |
-|:-------------|:-------------|:------------|
-| `User` | `users` | Optional — single-user mode by default |
-| `Collection` | `collections` | `_id` → `id TEXT (UUID)`, drop `userId` for single-user |
-| `SavedRequest` | `requests` | `_id` → `id TEXT (UUID)`, JSON columns for headers/params/body |
-| `Environment` | `environments` | JSON column for `variables` array |
-| `History` | `history` | JSON columns for request/response blobs |
-| `TestRun` | `test_runs` | JSON column for `results` array |
-| `SchemaContract` | `schema_contracts` | JSON column for inferred schema |
-| `Schedule` | `schedules` | Keep cron expression as text |
-
-### 4.3 Sensitive Data
-
-| Data | Storage | Encryption |
-|:-----|:--------|:-----------|
-| Gemini API Key | OS Keychain (keytar) | OS-managed |
-| Auth tokens (if cloud sync) | OS Keychain | OS-managed |
-| Client certificates | App data directory | File-system permissions |
-| Preferences | SQLite `settings` table | None (non-sensitive) |
-
----
-
-## 5. Electron-Specific Implementation
-
-### 5.1 Main Process Responsibilities
-
-```typescript
-// main/index.ts — Electron entry point
-- Create BrowserWindow with custom titlebar
-- Start local Express server on random port
-- Pass server port to renderer via IPC
-- Set up native menu bar with accelerators
-- Handle file dialog IPC calls
-- Set up system tray (minimize to tray)
-- Initialize auto-updater
-- Handle app lifecycle (single instance lock)
+```ts
+export const runtimeModeSchema = z.enum(['web', 'desktop']);
+export type RuntimeMode = z.infer<typeof runtimeModeSchema>;
 ```
 
-### 5.2 IPC Channels
+Environment variables:
+
+| Variable | Mode | Purpose |
+|:--|:--|:--|
+| `ATX_RUNTIME_MODE` | both | `web` or `desktop`; defaults to `web` outside Electron |
+| `ATX_DESKTOP_USER_DATA_DIR` | desktop | Optional override for app data directory during tests |
+| `ATX_SQLITE_PATH` | desktop | Optional explicit SQLite database path |
+| `MONGODB_URI` | web | Required only in web mode |
+| `FRONTEND_URL` | web | Required for hosted web CORS |
+| `GEMINI_API_KEY` | web | Optional provider key fallback |
+| `GEMINI_MODEL` | both | Default Gemini model name |
+
+Runtime rules:
+
+- Web mode uses MongoDB and JWT auth.
+- Desktop mode uses SQLite and a bootstrapped local user.
+- Desktop mode must not require `MONGODB_URI`.
+- Desktop mode API binds to `127.0.0.1` only.
+- Desktop mode CORS allows the Electron renderer origin and local dev origins.
+
+## 6. Electron Main Process
+
+### 6.1 Window Requirements
+
+- Create one main BrowserWindow.
+- Default size: 1440 x 900.
+- Minimum size: 1024 x 720.
+- Restore last saved bounds when valid.
+- Enable `contextIsolation`.
+- Disable `nodeIntegration`.
+- Disable remote module usage.
+- Use preload script at `apps/desktop/src/preload/index.ts`.
+- Use `HashRouter` or an equivalent Electron-safe routing approach for packaged builds.
+- In development, load Vite dev server.
+- In production, load the built renderer from `apps/web/dist`.
+
+### 6.2 Local API Server Requirements
+
+Create `apps/desktop/src/main/local-api-server.ts`.
+
+Required behavior:
+
+- Start the Express app on `127.0.0.1` and port `0`.
+- Capture the chosen port.
+- Expose the API base URL to renderer as `http://127.0.0.1:{port}`.
+- Wait for `/health` to return success before showing the main app as ready.
+- Shut down the server during app quit.
+- Surface startup failure to the renderer and show a recoverable error screen.
+
+The local API server must not listen on `0.0.0.0`.
+
+### 6.3 Single Instance
+
+- Use `app.requestSingleInstanceLock()`.
+- If a second instance starts, focus and restore the existing main window.
+- If the second instance is passed a file path, open the import flow in the existing window.
+
+## 7. Preload and IPC Contract
+
+Expose only this API from preload:
+
+```ts
+export interface AtxDesktopApi {
+  getRuntimeInfo(): Promise<DesktopRuntimeInfo>;
+  getApiBaseUrl(): Promise<string>;
+  openFile(options: OpenFileOptions): Promise<OpenFileResult>;
+  saveFile(options: SaveFileOptions): Promise<SaveFileResult>;
+  chooseDirectory(options: ChooseDirectoryOptions): Promise<ChooseDirectoryResult>;
+  getSecret(key: SecretKey): Promise<SecretReadResult>;
+  setSecret(input: SecretWriteInput): Promise<SecretWriteResult>;
+  deleteSecret(key: SecretKey): Promise<SecretDeleteResult>;
+  getSystemProxy(): Promise<SystemProxyResult>;
+  importCertificate(input: CertificateImportInput): Promise<CertificateImportResult>;
+  checkForUpdates(): Promise<UpdateCheckResult>;
+  installUpdate(): Promise<UpdateInstallResult>;
+  showNotification(input: NotificationInput): Promise<NotificationResult>;
+  onUpdateAvailable(callback: (event: UpdateAvailableEvent) => void): Unsubscribe;
+  onMenuCommand(callback: (event: MenuCommandEvent) => void): Unsubscribe;
+}
+```
+
+Global type declaration:
+
+```ts
+declare global {
+  interface Window {
+    atxDesktop?: AtxDesktopApi;
+  }
+}
+```
+
+IPC rules:
+
+- Channel names live in `apps/desktop/src/shared/ipc-channels.ts`.
+- Payload schemas live in `apps/desktop/src/shared/ipc-schemas.ts`.
+- IPC handlers validate inputs with Zod before performing work.
+- IPC responses use the same success or error shape as API responses.
+- Renderer event subscriptions must return an unsubscribe function.
+
+Required IPC channels:
 
 | Channel | Direction | Purpose |
-|:--------|:----------|:--------|
-| `server:port` | Main → Renderer | Pass local server port |
-| `file:open` | Renderer → Main | Open file dialog |
-| `file:save` | Renderer → Main | Save file dialog |
-| `cert:import` | Renderer → Main | Import client certificate |
-| `proxy:get-system` | Renderer → Main | Get OS proxy settings |
-| `app:check-update` | Renderer → Main | Trigger update check |
-| `app:install-update` | Renderer → Main | Install downloaded update |
-| `notification:send` | Main → Renderer | OS notification from schedule worker |
-| `window:minimize-to-tray` | Renderer → Main | Minimize to system tray |
+|:--|:--|:--|
+| `runtime:get-info` | renderer to main | Return app version, mode, platform, user data path |
+| `server:get-api-base-url` | renderer to main | Return local API base URL |
+| `file:open` | renderer to main | Open JSON, cURL, certificate, or backup file |
+| `file:save` | renderer to main | Save exported data |
+| `directory:choose` | renderer to main | Choose backup or data directory |
+| `secret:get` | renderer to main | Read secret from keychain |
+| `secret:set` | renderer to main | Write secret to keychain |
+| `secret:delete` | renderer to main | Delete secret from keychain |
+| `proxy:get-system` | renderer to main | Read system proxy settings |
+| `certificate:import` | renderer to main | Import client certificate |
+| `update:check` | renderer to main | Check for updates |
+| `update:install` | renderer to main | Install downloaded update |
+| `notification:show` | renderer to main | Show native notification |
+| `menu:command` | main to renderer | Dispatch native menu action |
+| `update:available` | main to renderer | Inform renderer of update availability |
 
-### 5.3 Security (Context Isolation)
+## 8. Renderer Integration
 
-```typescript
-// preload/index.ts
-contextBridge.exposeInMainWorld('electronAPI', {
-  // File operations
-  openFile: (opts) => ipcRenderer.invoke('file:open', opts),
-  saveFile: (opts) => ipcRenderer.invoke('file:save', opts),
-  
-  // Server
-  getServerPort: () => ipcRenderer.invoke('server:port'),
-  
-  // App
-  getVersion: () => ipcRenderer.invoke('app:version'),
-  checkForUpdates: () => ipcRenderer.invoke('app:check-update'),
-  
-  // Events
-  onUpdateAvailable: (cb) => ipcRenderer.on('update:available', cb),
-  onNotification: (cb) => ipcRenderer.on('notification:send', cb),
-});
+### 8.1 API Client Boot
+
+Modify `apps/web/src/services/api.ts` so the API base URL can be configured before API calls.
+
+Required behavior:
+
+- In web mode, use `import.meta.env.VITE_API_URL` or `http://localhost:8000`.
+- In desktop mode, call `window.atxDesktop.getApiBaseUrl()`.
+- Defer auth checks and data fetching until API client initialization finishes.
+- Export a named function such as `initializeApiClient`.
+- Keep Axios interceptors for web mode.
+- In desktop mode, do not redirect to `/login` after a 401 unless the user enabled passphrase lock.
+
+### 8.2 Routing
+
+Required behavior:
+
+- Use `BrowserRouter` for web mode.
+- Use `HashRouter` for packaged desktop mode, or otherwise ensure deep links work after reload.
+- Desktop mode should route first launch to onboarding or settings if required secrets are missing.
+- Desktop mode should bypass login/register screens unless passphrase lock is enabled.
+
+### 8.3 Desktop Detection
+
+Create a small renderer adapter, for example `apps/web/src/services/desktop.service.ts`.
+
+Required exports:
+
+- `isDesktopRuntime(): boolean`
+- `getDesktopRuntimeInfo(): Promise<DesktopRuntimeInfo | null>`
+- `getDesktopApiBaseUrl(): Promise<string | null>`
+- File dialog helpers used by import and export flows.
+
+Components should call this adapter instead of directly reading `window.atxDesktop`.
+
+## 9. Backend Data Access
+
+### 9.1 Provider Contract
+
+Introduce a data provider boundary so services can support web and desktop modes without duplicating business logic.
+
+```ts
+export interface DatabaseProvider {
+  users: UserRepository;
+  collections: CollectionRepository;
+  requests: RequestRepository;
+  environments: EnvironmentRepository;
+  history: HistoryRepository;
+  testRuns: TestRunRepository;
+  schedules: ScheduleRepository;
+  schemaContracts: SchemaContractRepository;
+  settings: SettingsRepository;
+  backups: BackupRepository;
+}
 ```
 
----
+Rules:
 
-## 6. Build & Distribution
+- Service functions call repositories, not Mongoose models directly, after migration.
+- Repository params and returns are typed from shared domain types.
+- Mongo provider may wrap existing Mongoose models.
+- SQLite provider uses Drizzle queries and maps JSON columns to typed structures.
+- Desktop migration can proceed module by module, but each module must keep endpoint behavior stable.
 
-### 6.1 Platform Builds
+### 9.2 Desktop Local User
 
-| Platform | Format | Code Signing |
-|:---------|:-------|:-------------|
-| Windows | `.exe` (NSIS installer) + portable `.zip` | Optional (EV cert) |
-| macOS | `.dmg` + `.zip` | Required (Apple notarization) |
-| Linux | `.AppImage` + `.deb` + `.rpm` | Not required |
+Desktop mode creates one local user:
 
-### 6.2 Auto-Update Flow
+- `id`: `local-user`
+- `email`: `local@atx.desktop`
+- `name`: `Local User`
+- `role`: local desktop owner if a role field is introduced.
 
+Auth middleware behavior:
+
+- Web mode: current JWT authentication.
+- Desktop mode: attach local user identity to request context and continue.
+- Services must still receive a typed `userId`.
+
+## 10. SQLite Storage
+
+### 10.1 Database Location
+
+Default paths:
+
+| OS | Location |
+|:--|:--|
+| Windows | `%APPDATA%/atx-desktop/atx.db` |
+| macOS | `~/Library/Application Support/atx-desktop/atx.db` |
+| Linux | `~/.config/atx-desktop/atx.db` |
+
+During tests, `ATX_SQLITE_PATH` may point to a temporary database.
+
+### 10.2 Migration Rules
+
+- Migrations run on startup before the API is marked ready.
+- Migrations are versioned and idempotent.
+- Failed migration prevents normal app load and shows a recovery screen.
+- Database backups should be created before destructive migrations.
+
+### 10.3 JSON Columns
+
+SQLite tables may use JSON text columns for nested data:
+
+- request headers
+- request params
+- request body metadata
+- auth config
+- environment variables
+- history request and response snapshots
+- test run results
+- schema contract violations
+
+All JSON columns must be parsed and validated before use.
+
+## 11. Secrets and Keychain
+
+Secrets include:
+
+- Gemini API key.
+- Environment variables marked `secret`.
+- Bearer tokens saved in auth config.
+- Basic auth passwords.
+- API key values.
+- Client certificate passphrases.
+
+Rules:
+
+- Store secret values in OS keychain where supported.
+- Store only secret references in SQLite.
+- Redact secrets in exports, logs, AI prompts, and UI previews.
+- Provide explicit encrypted export flow if secret export is later added.
+- If keychain is unavailable, require user consent before using encrypted local fallback.
+
+## 12. Native Menus
+
+Required menus:
+
+| Menu | Commands |
+|:--|:--|
+| File | New Request, New Collection, Import, Export, Backup, Restore, Settings, Exit |
+| Edit | Undo, Redo, Cut, Copy, Paste, Select All |
+| View | Reload, Toggle Developer Tools, Zoom In, Zoom Out, Reset Zoom, Toggle Sidebar, Toggle AI Panel |
+| Request | Send, Save, Duplicate, Copy as cURL, Generate Code |
+| Collection | Run Collection, New Folder, Import Collection, Export Collection |
+| Run | Run Tests, Run Collection, Open Runner, Open History |
+| AI | Open AI Chat, Generate Tests, Debug Response, Generate Suite, Analyze Coverage, Generate Docs |
+| Tools | Proxy Settings, Certificates, Schema Contracts, Schedules |
+| Help | Documentation, Report Issue, About |
+
+Native menu commands should dispatch `menu:command` events to the renderer when they affect UI state.
+
+## 13. Import, Export, Backup, Restore
+
+### 13.1 Import
+
+Supported imports:
+
+- cURL text.
+- Postman collection v2.1 JSON.
+- ATX collection JSON.
+- ATX full backup JSON.
+
+### 13.2 Export
+
+Supported exports:
+
+- Request as cURL.
+- Collection as ATX JSON.
+- Collection as Postman-compatible JSON where feasible.
+- Full local backup.
+
+### 13.3 Restore
+
+Restore must:
+
+- Validate backup schema.
+- Show summary before applying.
+- Create a pre-restore backup.
+- Preserve current data if restore fails.
+
+## 14. Proxy and Certificates
+
+Proxy modes:
+
+- System proxy.
+- Manual HTTP or HTTPS proxy.
+- No proxy.
+
+Certificate support:
+
+- Import PEM and PFX certificates.
+- Store certificate files in app data with restricted permissions.
+- Store certificate passphrase in keychain.
+- Allow certificate selection per request or collection.
+- Apply certificate settings only in the executor layer.
+
+## 15. Build and Packaging
+
+### 15.1 Scripts
+
+Root scripts to add:
+
+```json
+{
+  "dev:desktop": "npm run dev -w apps/desktop",
+  "build:desktop": "npm run build -w apps/desktop",
+  "package:desktop": "npm run package -w apps/desktop"
+}
 ```
-App Start → Check GitHub Releases API → Compare Versions
-  → If new version: Download in background → Notify user
-  → User clicks "Restart to Update" → Install & restart
+
+Desktop package scripts:
+
+```json
+{
+  "dev": "electron-vite dev",
+  "build": "tsc -b && electron-vite build",
+  "package": "electron-builder"
+}
 ```
 
-### 6.3 CI/CD Pipeline
+If `electron-vite` is not used, provide equivalent Vite and Electron build commands.
 
-```yaml
-# .github/workflows/build.yml
-trigger: push to main, tag v*
-jobs:
-  - build-windows (windows-latest)
-  - build-macos (macos-latest)
-  - build-linux (ubuntu-latest)
-  
-  Steps per platform:
-  1. Checkout + install deps
-  2. Build web app (Vite)
-  3. Build API server (tsc)
-  4. Package with electron-builder
-  5. Upload artifacts to GitHub Release
-```
+### 15.2 Installer Targets
 
----
+| Platform | Target |
+|:--|:--|
+| Windows | NSIS installer and portable build |
+| macOS | DMG and ZIP |
+| Linux | AppImage and DEB |
 
-## 7. Performance Requirements
+### 15.3 Code Signing
 
-| Metric | Target | Measurement |
-|:-------|:-------|:------------|
-| Cold start | < 3s | Time from double-click to usable UI |
-| Request execution overhead | < 100ms | ATX overhead on top of network time |
-| UI interaction latency | < 16ms (60fps) | No frame drops during typing/scrolling |
-| Memory (idle) | < 300MB | After app start with no requests open |
-| Memory (loaded) | < 800MB | With 50 tabs open, dashboard loaded |
-| SQLite query | < 10ms | Any single table query |
-| Bundle size | < 150MB | Packaged installer |
-| AI response start | < 2s | Time to first token from Gemini |
+- Code signing is optional for local developer builds.
+- Release builds should support configured signing certificates.
+- Auto-update is enabled only for signed or trusted release channels.
 
----
+## 16. Testing Requirements
 
-## 8. Migration Strategy (Web → Desktop)
+Required verification:
 
-### 8.1 Changes Required
+- `npm run type-check`
+- `npm run lint`
+- `npm run test`
+- `npm run build:web`
+- `npm run build:api`
+- Desktop package type-check and build once `apps/desktop` exists.
 
-| File/Area | Change | Impact |
-|:----------|:-------|:-------|
-| `apps/web/src/services/api.ts` | Dynamic base URL from `electronAPI.getServerPort()` | Low |
-| `apps/web/src/app/router.tsx` | `BrowserRouter` → `HashRouter` (Electron file:// protocol) | Low |
-| `apps/api/src/config/database.ts` | MongoDB → SQLite connection | Medium |
-| `apps/api/src/models/*` | Mongoose schemas → Drizzle schemas | High |
-| `apps/api/src/modules/*/service.ts` | Mongoose queries → Drizzle queries | High |
-| `apps/api/src/modules/auth/*` | JWT auth → optional passphrase or removed | Low |
-| `apps/api/src/config/env.ts` | Add `DESKTOP_MODE` flag, SQLite path | Low |
+Required test coverage:
 
-### 8.2 Shared Code Strategy
+- Runtime mode parsing.
+- Desktop auth bypass and local user bootstrap.
+- SQLite repositories.
+- IPC schema validation.
+- API client initialization in web and desktop modes.
+- File import and export helpers.
+- Backup validation and restore failure recovery.
+- Keychain adapter with mocked keychain.
+- Electron smoke test: launch app, get API URL, hit `/health`, render dashboard or request builder.
 
-- Frontend React code: **100% reusable** (no changes to components)
-- Backend services: **80% reusable** (swap database layer only)
-- Types/interfaces: **100% reusable** (move to `packages/shared`)
+## 17. Acceptance Criteria
 
----
+The desktop implementation is accepted when:
 
-## 9. Third-Party Dependencies (Desktop-Specific)
-
-| Package | Purpose | License |
-|:--------|:--------|:--------|
-| `electron` | Desktop shell | MIT |
-| `electron-builder` | Build/packaging | MIT |
-| `electron-updater` | Auto-updates | MIT |
-| `better-sqlite3` | SQLite driver | MIT |
-| `drizzle-orm` | Type-safe ORM | Apache-2.0 |
-| `keytar` | OS keychain access | MIT |
-| `electron-store` | Simple key-value preferences | MIT |
-| `electron-log` | File-based logging | MIT |
+- The app launches as a desktop window.
+- Renderer obtains API base URL through `window.atxDesktop`.
+- Existing request builder and response viewer workflows work in desktop mode.
+- Desktop mode runs without MongoDB.
+- Local data persists in SQLite after restart.
+- AI features use the configured Gemini key and validate structured responses.
+- Import, export, backup, and restore use native file dialogs.
+- Settings can update theme, AI key, proxy, certificates, data retention, and updater preferences.
+- Type-check, lint, and relevant tests pass or documented pre-existing failures are reported without masking new failures.

@@ -1,212 +1,295 @@
-# ATX Desktop Application — Product Requirements Document (PRD)
+# ATX Desktop Application - Product Requirements Document
 
-> **Version:** 1.0  
-> **Author:** Bharat Bhangale  
-> **Date:** June 2026  
-> **Status:** Draft
+Version: 2.0
+Date: June 2026
+Product: ATX Desktop, an AI-powered API testing workbench
+Audience: AI coding agents, product owners, and engineers building the desktop app
 
----
+## 1. Product Vision
 
-## 1. Executive Summary
+ATX Desktop is a local-first desktop API testing application for developers and QA teams who want the core workflow of Postman with built-in AI assistance for test creation, debugging, documentation, and coverage analysis.
 
-### 1.1 Vision Statement
+The desktop app must preserve the existing ATX web app feature set while adding desktop-native capabilities: local data, native file import and export, OS keychain secrets, offline work, menu shortcuts, background schedules, backup and restore, proxy configuration, certificate management, and packaged installers.
 
-ATX (AI-powered API Testing eXplorer) Desktop is a native desktop application that brings the full power of the ATX web platform to Windows, macOS, and Linux as a standalone Electron-based app. It combines the intuitive request-building UX of Postman with deeply integrated AI capabilities — auto-test generation, intelligent debugging, coverage analysis, and automated documentation — all running locally with optional cloud sync.
+## 2. Product Positioning
 
-### 1.2 Problem Statement
+ATX Desktop should be positioned as:
 
-- **Postman** is feature-rich but AI is an afterthought — Postbot is limited, locked behind enterprise tiers
-- **Insomnia** is lightweight but lacks testing depth and AI
-- **Bruno** is offline-first but has zero AI integration
-- No tool unifies: request building + AI testing + collection running + schema validation + API documentation in a single desktop experience
+- A developer workbench for building, testing, debugging, and documenting REST APIs.
+- A local-first alternative for teams that want API collections stored on the machine and exportable to Git-friendly formats.
+- An AI-assisted testing tool, not a generic chatbot. AI must produce practical outputs that users can inspect, edit, approve, and run.
+- A desktop companion to the existing ATX web app, reusing the same UI and backend behavior where practical.
 
-### 1.3 Product Positioning
+## 3. Target Users
 
-ATX Desktop is the **AI-native API development companion** — it doesn't just let you make API calls, it **thinks about your APIs** and generates tests, finds bugs, validates schemas, and writes documentation automatically.
+### 3.1 Backend Developer
 
----
+Needs to create API requests quickly, reuse environments, inspect responses, generate assertions, and debug failed requests without switching tools.
 
-## 2. Target Users & Personas
+Success means the developer can create a request, send it, read the response, generate tests, save the request, and replay it later in one flow.
 
-### Persona 1: Solo Backend Developer ("Dev Deepak")
-- Builds REST APIs in Node.js/Python
-- Tests manually with curl/Postman
-- Wants: Auto-generated tests after each request, instant debugging help
-- Pain: Writing test assertions is tedious, forgets edge cases
+### 3.2 QA Engineer
 
-### Persona 2: QA Engineer ("QA Priya")  
-- Runs regression suites across environments
-- Manages 200+ endpoints across 10 collections
-- Wants: Scheduled runs, cross-environment matrix testing, flaky test detection
-- Pain: Manual test maintenance, no visibility into API health trends
+Needs repeatable collections, test scripts, collection runner results, historical runs, schedules, and clear pass or fail output.
 
-### Persona 3: Tech Lead ("Lead Arjun")
-- Reviews API contracts, ensures quality
-- Needs: Auto-generated API docs, coverage reports, health dashboards
-- Wants: Know at a glance what's tested, what's broken, what's slow
-- Pain: Documentation is always stale, no automated coverage tracking
+Success means the QA engineer can run a saved collection against multiple environments and produce results that are understandable by developers.
 
-### Persona 4: Freelancer ("Freelance Neha")
-- Works on multiple client projects
-- Wants: Offline-first, fast, no account required for basic usage
-- Pain: Cloud-only tools don't work on client VPNs, slow electron apps
+### 3.3 Tech Lead
 
----
+Needs API coverage visibility, schema drift detection, generated documentation, and a reliable way to share or review collections.
 
-## 3. Feature Matrix
+Success means the lead can identify risky endpoints, missing tests, unstable contracts, and failing scheduled runs.
 
-### 3.1 Core Features (Already Built — Web App)
+### 3.4 Solo Builder or Freelancer
 
-| # | Feature | Status | Module |
-|:--|:--------|:-------|:-------|
-| F1 | Request Builder (GET/POST/PUT/PATCH/DELETE) | ✅ Done | `request-builder` |
-| F2 | Tabbed Interface (multi-request editing) | ✅ Done | `requestStore` |
-| F3 | Response Viewer (body/headers/timing) | ✅ Done | `response-viewer` |
-| F4 | Collections & Folders (CRUD + drag-drop) | ✅ Done | `collections` |
-| F5 | Environments & Variables (`{{var}}` substitution) | ✅ Done | `environments` |
-| F6 | Request History (auto-saved, searchable) | ✅ Done | `history` |
-| F7 | Auth (JWT login/register + refresh) | ✅ Done | `auth` |
-| F8 | Import (Postman/Insomnia/cURL/OpenAPI) | ✅ Done | `import` |
-| F9 | Dark/Light Theming + Keyboard Shortcuts | ✅ Done | `styles`, `hooks` |
-| F10 | Offline Detection + Error Boundaries | ✅ Done | `common` |
+Needs a lightweight local tool that works without setting up cloud infrastructure and can store secrets safely.
 
-### 3.2 AI Features (Already Built — Web App)
+Success means the user can run ATX Desktop with a local database, BYO Gemini API key, and import or export collections without account setup.
 
-| # | Feature | Status | Module |
-|:--|:--------|:-------|:-------|
-| AI1 | AI Test Generator (per request) | ✅ Done | `test-generator` |
-| AI2 | AI Debug Assistant (error analysis) | ✅ Done | `debug-assistant` |
-| AI3 | AI Chat (streaming SSE) | ✅ Done | `chat` |
-| AI4 | AI Test Suite Generator (collection-level) | ✅ Done | `suite-generator` |
-| AI5 | AI Coverage Analyzer | ✅ Done | `coverage-analyzer` |
-| AI6 | AI API Documentation Generator (OpenAPI 3.0) | ✅ Done | `api-doc-generator` |
+## 4. Existing Web Feature Parity
 
-### 3.3 Automation Features (Already Built — Web App)
+The desktop app must keep the following web app behavior unless a desktop-specific requirement overrides it.
 
-| # | Feature | Status | Module |
-|:--|:--------|:-------|:-------|
-| A1 | Test Script Runner (sandbox VM) | ✅ Done | `test-runner` |
-| A2 | Auto-Test on Response | ✅ Done | `testRunnerStore` |
-| A3 | Collection Runner (sequential + SSE) | ✅ Done | `collection-runner` |
-| A4 | Request Chaining (`{{chain.*}}` variables) | ✅ Done | `chain-resolver` |
-| A5 | Pre-Request Scripts (sandbox VM) | ✅ Done | `pre-request-runner` |
-| A6 | Scheduled Test Runs (cron-based) | ✅ Done | `schedules` |
-| A7 | AI Schema Validator (auto-infer contracts) | ✅ Done | `schema-validator` |
-| A8 | Environment Matrix Runner | ✅ Done | `environment-matrix` |
+| Area | Required behavior |
+|:--|:--|
+| Request builder | Method selector, URL bar, query params, headers, body editor, auth config, pre-request script, test script |
+| Request execution | Server-side executor, CORS bypass through local API, SSRF guard, timing, size, status, headers, and body |
+| Response viewer | Pretty JSON, raw response fallback, response metadata, response headers, status badges |
+| Tabs | Multiple request tabs, active tab state, close tab, new tab, keyboard shortcuts |
+| Collections | Collections, nested folders, saved requests, request ordering, collection-level auth |
+| Environments | Variable sets, active environment selector, text and secret variables, `{{variable}}` substitution |
+| Auth | Web mode retains JWT access tokens and HTTP-only refresh cookies |
+| History | Automatic request history, search and replay |
+| Import | cURL import and Postman collection v2.1 import |
+| Export | Export request as cURL and export collections where supported |
+| AI chat | Chat with request and response context |
+| AI test generation | Generate editable test assertions from response data |
+| AI debug | Diagnose failed requests and propose fixes |
+| AI suite generation | Generate request suites from API context |
+| AI coverage analysis | Identify gaps and recommend test scenarios |
+| AI docs | Generate readable API documentation from collections or request data |
+| Test runner | Execute JavaScript assertions in a sandboxed test runner |
+| Collection runner | Run saved requests in order, resolve chained variables, show row-level results |
+| Schedules | Store scheduled collection runs with cron expressions |
+| Schema validator | Infer response schema contracts and detect drift |
+| Dashboard | Show usage, recent activity, test trends, and collection health |
 
-### 3.4 Reporting Features (Already Built — Web App)
+## 5. Desktop-Specific Requirements
 
-| # | Feature | Status | Module |
-|:--|:--------|:-------|:-------|
-| R1 | Test Dashboard (pass rate, trends, health) | ✅ Done | `dashboard` |
-| R2 | Test Run History & Trends | ✅ Done | `test-runs` |
-| R3 | Flaky Test Detection | ✅ Done | `test-trend` |
-| R4 | Regression Alerts | ✅ Done | `test-trend` |
-| R5 | Performance Degradation Detection | ✅ Done | `test-trend` |
+### 5.1 Desktop Shell
 
-### 3.5 Desktop-Specific Features (TO BUILD)
+- Create `apps/desktop` as an Electron package in the existing npm workspace.
+- Launch the existing React app in an Electron BrowserWindow.
+- Start or connect to the local Express API before the renderer makes API calls.
+- Use secure preload IPC exposed as `window.atxDesktop`.
+- Keep `nodeIntegration` disabled and `contextIsolation` enabled.
+- Support single-instance behavior. Opening a second instance focuses the existing window.
 
-| # | Feature | Priority | Description |
-|:--|:--------|:---------|:------------|
-| D1 | Electron Shell + Window Management | P0 | Native window with menu bar, title bar, system tray |
-| D2 | Local-First Data Storage | P0 | SQLite/NeDB for offline collections, optional MongoDB sync |
-| D3 | Native File Dialogs | P1 | Save/open collections as files, export responses |
-| D4 | System Proxy Settings | P1 | Respect OS proxy, custom proxy config per environment |
-| D5 | Certificate Management | P1 | Import client certs, disable SSL verification per request |
-| D6 | Protocol Support (gRPC, WebSocket, GraphQL) | P2 | Beyond REST — protocol tabs in request builder |
-| D7 | Native Notifications | P1 | Schedule run failures → OS notification |
-| D8 | Auto-Updates (Electron Updater) | P1 | Seamless app updates via GitHub Releases |
-| D9 | Code Generation | P2 | Generate cURL/Python/JS/Go code from requests |
-| D10 | Workspace Sync | P2 | Optional cloud sync across devices |
-| D11 | Plugin System | P3 | Community-built extensions for custom auth, transforms |
-| D12 | Multi-Window Support | P2 | Detach tabs to separate windows |
+### 5.2 Runtime Modes
 
----
+- Add `ATX_RUNTIME_MODE=web|desktop`.
+- Web mode keeps the current MongoDB Atlas and JWT auth model.
+- Desktop mode creates one local user automatically and may bypass JWT route gating.
+- Desktop mode stores data locally and does not require MongoDB.
+- The response envelope remains `{ success: boolean, data?: T, error?: { code: string, message: string } }`.
 
-## 4. Success Metrics
+### 5.3 Local Data
 
-| Metric | Target (6 months) |
-|:-------|:------------------|
-| GitHub Stars | 500+ |
-| Downloads | 5,000+ |
-| Daily Active Users | 200+ |
-| Average Session Length | 25+ minutes |
-| AI Feature Adoption | 60% of users use at least 1 AI feature |
-| Test Generation Rate | 80% of responses auto-trigger test gen |
-| Crash Rate | < 0.5% of sessions |
-| Cold Start Time | < 3 seconds |
+- Desktop mode uses SQLite with Drizzle ORM.
+- Store collections, requests, environments, history, test runs, schedules, schema contracts, settings, backup metadata, and secrets metadata.
+- Store actual secret values in the OS keychain where supported.
+- The app must still allow JSON export for backup and Git-friendly sharing.
 
----
+### 5.4 Native Features
 
-## 5. Non-Functional Requirements
+- Native menu bar with File, Edit, View, Request, Collection, Run, AI, Tools, and Help menus.
+- Native open and save dialogs for import, export, backup, and restore.
+- System tray support for background scheduled runs and restore window action.
+- Native notifications for schedule failures, successful long-running runs, and update availability.
+- Auto-update support through GitHub Releases or a configured release provider.
+- Proxy settings for system proxy, manual proxy, and no proxy.
+- Client certificate import for APIs that require mTLS.
+- Optional passphrase lock for protecting local workspaces.
 
-### 5.1 Performance
-- Cold start: < 3 seconds
-- Request execution: < 100ms overhead
-- UI response: < 50ms for all interactions
-- Memory: < 300MB idle, < 800MB under load
+### 5.5 Packaging
 
-### 5.2 Security
-- All API keys stored encrypted (OS keychain integration)
-- No telemetry without explicit opt-in
-- Requests never proxied through ATX servers
-- Auth tokens in HTTP-only cookies
+- Provide installers for Windows first.
+- Keep macOS and Linux packaging configuration compatible, even if Windows is the first release.
+- Store user data under Electron `app.getPath('userData')`.
+- Do not write mutable app data inside the install directory.
 
-### 5.3 Accessibility
-- Full keyboard navigation
-- Screen reader compatible
-- WCAG 2.1 AA compliance
-- Resizable panels and font sizes
+## 6. MVP Scope
 
-### 5.4 Platform Support
-- Windows 10+ (x64, ARM64)
-- macOS 12+ (Intel, Apple Silicon)
-- Linux (AppImage, .deb, .rpm)
+### 6.1 MVP Must Ship
 
----
+- Electron shell that launches ATX as a desktop app.
+- Existing web API testing features working through the local API server.
+- Desktop runtime mode contract.
+- Local SQLite database for desktop mode.
+- Local user bootstrap and desktop auth bypass.
+- Native file dialogs for import, export, backup, and restore.
+- Settings page for AI key, theme, data location, proxy, certificates, and updates.
+- OS keychain storage for Gemini API key and other sensitive values.
+- Installer build for Windows.
+- Documentation and prompts in this docs set.
 
-## 6. Release Plan
+### 6.2 MVP Should Ship
 
-### Phase 1: Desktop Shell (Week 1-2)
-- Electron wrapper around existing web app
-- Native menus, window chrome, system tray
-- Local API server bundled
+- System tray with background schedule status.
+- Native notifications.
+- Auto-update check and install flow.
+- Code generation from saved request config for cURL, JavaScript fetch, Python requests, and Go.
+- Local database backup rotation.
 
-### Phase 2: Local-First (Week 3-4)
-- SQLite storage layer
-- Offline mode with full functionality
-- File-based collection import/export
+### 6.3 Later Releases
 
-### Phase 3: Desktop Enhancements (Week 5-6)
-- Certificate management
-- Proxy settings
-- Native file dialogs
-- Auto-updates
+- Cloud sync.
+- Team workspaces.
+- GraphQL testing.
+- WebSocket testing.
+- gRPC support.
+- Visual API contract diff views.
+- Multi-window tab detach.
+- Plugin marketplace.
 
-### Phase 4: Advanced Protocols (Week 7-8)
-- WebSocket testing
-- GraphQL support
-- Code generation
+## 7. User Stories
 
----
+### 7.1 Request Execution
 
-## 7. Assumptions
+As a developer, I can create a request with method, URL, params, headers, auth, and body, send it, and inspect the response so I can validate an API endpoint quickly.
 
-1. The existing web app codebase (React + Express) will be wrapped in Electron
-2. The Express API server will be bundled inside Electron as a local server
-3. MongoDB will be replaced with SQLite/NeDB for local-first desktop usage
-4. Gemini API key will be user-provided (settings panel) — no ATX cloud dependency
-5. The app will be distributed as a free, open-source tool (MIT license)
-6. Electron v33+ will be used for latest Chromium security
-7. The existing CSS Modules design system will carry over unchanged
+Acceptance criteria:
 
----
+- User can send GET, POST, PUT, PATCH, DELETE, HEAD, and OPTIONS requests.
+- URL variables resolve from the active environment before execution.
+- Response shows status, status text, total timing, response size, headers, and body.
+- Failed network calls show a useful error without crashing the UI.
 
-## 8. Out of Scope (V1)
+### 7.2 Save and Reuse
 
-- Mobile app (iOS/Android)
-- Team collaboration (shared workspaces)
-- CI/CD pipeline integration CLI
-- API mocking server
-- Load/performance testing (k6-style)
-- OAuth2 flow browser popup handling
+As a user, I can save requests into collections and folders so I can build repeatable test suites.
+
+Acceptance criteria:
+
+- User can create, rename, delete, and reorder collections and folders.
+- User can save a request to a collection and later reopen it in a tab.
+- Collection-level auth can be inherited by saved requests.
+
+### 7.3 AI Test Generation
+
+As a QA engineer, I can generate assertions from a response so I can turn manual checks into repeatable tests.
+
+Acceptance criteria:
+
+- AI receives request and response context.
+- AI returns structured JSON validated by Zod.
+- Generated tests are shown for review before being saved.
+- User can edit generated tests before running them.
+
+### 7.4 Local-First Desktop Use
+
+As a desktop user, I can use ATX without a remote database so I can work offline and keep collections on my machine.
+
+Acceptance criteria:
+
+- First launch creates a local profile and SQLite database.
+- App opens without MongoDB configuration in desktop mode.
+- Collections, environments, history, schedules, and settings persist after restart.
+- User can export and restore local data through native file dialogs.
+
+### 7.5 Secure Secrets
+
+As a user, I can store API keys and environment secrets securely so sensitive values are not written in plain text exports or logs.
+
+Acceptance criteria:
+
+- Gemini API key is stored in OS keychain where available.
+- Secret environment variables store keychain references in SQLite.
+- Exports redact secrets unless the user explicitly chooses an encrypted export.
+- Logs never print secret values.
+
+## 8. Non-Functional Requirements
+
+### 8.1 Performance
+
+- Cold launch should show a usable window within 5 seconds on a modern Windows laptop.
+- Request builder interactions should feel immediate, with no noticeable delay for typing in URL, headers, params, or body fields.
+- Sending requests should not block the renderer.
+- Large JSON responses should remain inspectable up to 5 MB.
+- History retention defaults to 90 days with a user setting for retention.
+
+### 8.2 Reliability
+
+- Desktop startup must fail gracefully if the local API server cannot start.
+- The local API server must listen on localhost only.
+- The app must recover from a stale server port on restart.
+- SQLite migrations must be idempotent.
+- Backup restore must validate file shape before replacing local data.
+
+### 8.3 Security
+
+- Electron renderer must not expose raw Node APIs.
+- IPC handlers must validate inputs with Zod.
+- Backend request bodies must keep Zod validation.
+- Executor must keep SSRF protection.
+- The app must not send AI prompts without explicit user action.
+- AI output must be treated as untrusted until validated and reviewed.
+
+### 8.4 Accessibility
+
+- Keyboard shortcuts must work for primary flows.
+- Focus states must be visible.
+- Color cannot be the only indicator of pass, fail, warning, or active state.
+- Interactive controls must have accessible labels or titles.
+
+## 9. Success Metrics
+
+| Metric | Target |
+|:--|:--|
+| Web parity | 100 percent of current web app core workflows usable in desktop |
+| First request | New user can send a request within 3 minutes of first launch |
+| Local persistence | Data survives restart, update, and backup restore |
+| AI utility | Generated tests require minor edits for common JSON APIs |
+| Stability | No app crash during normal request, import, export, or runner flows |
+| Packaging | Windows installer builds from CI or local command |
+
+## 10. Release Plan
+
+### Phase 1: Electron Shell and Web Parity
+
+Wrap the current app, start the local API server, resolve the API URL by IPC, and keep MongoDB for compatibility while the desktop shell is proven.
+
+### Phase 2: Desktop Runtime Contract
+
+Add `ATX_RUNTIME_MODE`, local user bootstrap, desktop auth bypass, and renderer support for desktop detection.
+
+### Phase 3: Local-First Data
+
+Add SQLite and Drizzle, migrate services from Mongoose to a database adapter pattern, and persist all desktop data locally.
+
+### Phase 4: Native Productivity
+
+Add file dialogs, backups, restore, menu commands, tray, notifications, settings, keychain secrets, proxy, certificates, and updater.
+
+### Phase 5: Polish and Distribution
+
+Add packaging, smoke tests, Electron E2E tests, installer verification, and release documentation.
+
+## 11. Out of Scope for V1
+
+- Multi-user accounts inside the desktop app.
+- Hosted sync service.
+- Team billing.
+- Browser extension.
+- Full OpenAPI editor.
+- Full Postman workspace import parity beyond supported collection import.
+- Running unreviewed AI-generated tests automatically.
+
+## 12. Assumptions
+
+- Electron is the desktop framework.
+- Existing web UI remains the primary renderer.
+- Existing Express service layer remains the business logic boundary.
+- Gemini remains the AI provider for V1.
+- The desktop app is local-first but can later add cloud sync.
+- Windows is the first packaging target, with macOS and Linux configuration kept in the build plan.

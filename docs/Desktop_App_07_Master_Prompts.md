@@ -1,478 +1,722 @@
-# ATX Desktop App — Master Prompts for AI Coding
+# ATX Desktop App - Master Prompts for Claude and Antigravity
 
-> Copy-paste these prompts into Claude/Antigravity to build each feature.  
-> Each prompt is self-contained with all files, specs, and context needed.
+Version: 2.0
+Date: June 2026
+Product: ATX Desktop
+Audience: User copying prompts into Claude, Antigravity, or another AI coding tool
 
----
+## How to Use These Prompts
 
-## Phase 1: Electron Shell
+Use one prompt at a time. Run prompts in order unless you have already completed an earlier phase. Each prompt is written to be copied into an AI coding agent with this repository open:
 
-### Prompt P1.1: Initialize Electron Desktop Package
-
-```
-GOAL: Create the Electron desktop app package that wraps the existing ATX web application.
-
-CONTEXT:
-- Monorepo with npm workspaces: apps/web (React+Vite), apps/api (Express), packages/*, tooling/*
-- Root package.json at: ./package.json (workspaces: ["apps/*", "packages/*", "tooling/*"])
-- Frontend builds to apps/web/dist/
-- Backend is Express server at apps/api/
-
-FILES TO CREATE:
-- apps/desktop/package.json — Electron 33+, electron-builder, electron-updater, electron-store, electron-log
-- apps/desktop/tsconfig.json — Targeting ESNext, Node module resolution
-- apps/desktop/electron-builder.yml — App ID "com.atx.desktop", target Windows/macOS/Linux
-- apps/desktop/src/main/index.ts — Main entry: create BrowserWindow (1440x900, minWidth 1024, minHeight 600), frameless on macOS, load dist/index.html
-- apps/desktop/src/preload/index.ts — contextBridge exposing: getServerPort, openFile, saveFile, getVersion, checkForUpdates, onUpdateAvailable, onNotification
-- apps/desktop/src/shared/ipc-channels.ts — Type-safe const enum of all IPC channel names
-
-SPEC:
-- BrowserWindow config: frame=false on macOS (use titleBarStyle:'hiddenInset'), frame=true custom title bar on Windows/Linux
-- Single instance lock: app.requestSingleInstanceLock()
-- Window state: save/restore position and size using electron-store
-- On macOS: keep app running when all windows closed (dock icon)
-- Security: contextIsolation=true, nodeIntegration=false, sandbox=true
-- Dev mode: load from http://localhost:5173 (Vite dev server). Prod: load from file://dist/index.html
-
-ALSO MODIFY:
-- package.json (root) — Add "apps/desktop" to workspaces array
-- Add scripts: "dev:desktop", "build:desktop" to root package.json
-
-TypeScript strict mode. NO Tailwind CSS.
+```text
+C:\Users\bhang\OneDrive\Desktop\AI Projects\ai-powered-api-testing
 ```
 
----
+For every prompt:
 
-### Prompt P1.2: Bundle Express Server in Electron
+- Follow `AGENTS.md`.
+- Use strict TypeScript.
+- Use named exports for new code.
+- Use CSS Modules and CSS variables.
+- Do not add Tailwind CSS.
+- Validate API request bodies and IPC payloads with Zod.
+- Preserve the API response envelope.
+- Keep backend controllers thin and services thick.
+- Do not auto-fix unrelated test failures. Report them.
+- Run the verification commands listed in the prompt.
 
-```
-GOAL: Start the Express API server from within the Electron main process on a random available port.
+## Global Context Block
 
-FILES TO CREATE:
-- apps/desktop/src/main/server.ts — Spawn Express server, find random port, emit 'ready' with port
+Copy this context into the top of every prompt if the AI tool does not already know the repo.
 
-SPEC:
-- Use `child_process.fork()` to run the API server in a separate Node process
-- Server script entry: apps/api/dist/server.js (compiled output)
-- Pass environment variables: PORT=0 (OS picks), DESKTOP_MODE=true, DATABASE_URL=<sqlite-path>
-- Server sends IPC message { type: 'ready', port: number } when listening
-- Main process stores port, responds to renderer IPC 'server:port' requests
-- Graceful shutdown: send 'shutdown' message to child process on app quit
-- Handle server crash: show error dialog, offer to restart
+```text
+You are working in the ATX monorepo: React 19 + Vite 6 frontend, Express 5 + TypeScript backend, MongoDB Atlas web mode, npm workspaces, Zustand, TanStack Query, CSS Modules, CSS variables, and Google Gemini structured AI responses validated with Zod.
 
-FILES TO MODIFY:
-- apps/api/src/server.ts — Add: if process.send, emit { type: 'ready', port } when listening. Handle 'shutdown' message.
-- apps/api/src/config/env.ts — Add DESKTOP_MODE env var, SQLite path
-- apps/desktop/src/main/index.ts — Import and call startServer(), wait for port, then pass to renderer
+Current feature surface to preserve: request builder, response viewer, multi-tabs, collections/folders, environments, history, cURL import/export, Postman import, AI chat, AI test generation, AI debug, AI suite generation, AI coverage analysis, AI docs generation, test runner, collection runner, schedules, schema validator, dashboard, environment matrix, and test trends.
 
-TypeScript strict mode. Express 5 pattern.
+Target desktop app: Electron app in apps/desktop. It reuses apps/web as renderer and apps/api as local API. Renderer obtains the local API URL through secure preload IPC exposed as window.atxDesktop. Backend supports ATX_RUNTIME_MODE=web|desktop. Web mode keeps MongoDB and JWT auth. Desktop mode uses SQLite/Drizzle, creates a local user, and can bypass JWT route gating. All new code must follow AGENTS.md.
 ```
 
----
+## Prompt P1 - Create Electron Desktop Package
 
-### Prompt P1.3: Configure Vite for Electron + Dynamic API URL
+```text
+Implement Phase 1 of ATX Desktop: create the Electron desktop workspace package.
 
-```
-GOAL: Make the React frontend work inside Electron's file:// protocol and connect to the dynamic local server port.
+Files to create:
+- apps/desktop/package.json
+- apps/desktop/tsconfig.json
+- apps/desktop/electron-builder.yml
+- apps/desktop/src/main/index.ts
+- apps/desktop/src/main/window.ts
+- apps/desktop/src/main/local-api-server.ts
+- apps/desktop/src/preload/index.ts
+- apps/desktop/src/shared/desktop-api.types.ts
+- apps/desktop/src/shared/ipc-channels.ts
+- apps/desktop/src/shared/ipc-schemas.ts
+- apps/desktop/resources/icon.png if an existing asset can be reused or generated locally
 
-FILES TO MODIFY:
-- apps/web/vite.config.ts — Add base: './' so asset paths work with file:// protocol
-- apps/web/src/app/router.tsx — Detect Electron (window.electronAPI exists) → use HashRouter instead of BrowserRouter. Keep BrowserRouter for web mode.
-- apps/web/src/services/api.ts — At startup: if window.electronAPI, call getServerPort() to get dynamic port. Set apiClient.defaults.baseURL = `http://localhost:${port}`. For web: keep existing VITE_API_URL.
+Files to modify:
+- package.json
 
-SPEC:
-- Add type declaration for window.electronAPI in apps/web/src/vite-env.d.ts
-- HashRouter uses # URLs (e.g., file://index.html#/dashboard) which work with Electron
-- The apiClient base URL must be set BEFORE any API calls happen
-- Create a small init function that resolves port and configures axios, called in App.tsx on mount
+Implementation requirements:
+- Add apps/desktop as an npm workspace package under the existing workspaces setup.
+- Add root scripts: dev:desktop, build:desktop, package:desktop.
+- Use Electron with secure defaults: contextIsolation true, nodeIntegration false, sandbox where compatible with preload requirements.
+- Create a BrowserWindow with default size 1440x900 and minimum size 1024x720.
+- In dev mode, load the Vite dev server URL.
+- In production, load the built apps/web dist output.
+- Implement single-instance lock. A second app launch should focus the existing window.
+- Add typed IPC channel constants.
+- Add Zod schemas for IPC payloads.
+- Expose window.atxDesktop from preload with getRuntimeInfo and getApiBaseUrl functions.
+- Do not expose raw Node or Electron APIs to the renderer.
+- Use named exports in all new TypeScript files.
 
-TypeScript strict mode. NO Tailwind CSS. CSS Modules only.
-```
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run build:web
+- npm run build:api
+- npm run build:desktop
 
----
-
-## Phase 2: Desktop-Native Features
-
-### Prompt P2.1: Native Menu Bar
-
-```
-GOAL: Create a full native menu bar for the desktop app with all keyboard shortcuts.
-
-FILES TO CREATE:
-- apps/desktop/src/main/menu.ts — Build and set application menu using Menu.buildFromTemplate()
-
-MENU STRUCTURE:
-File: New Request (Ctrl+N), New Collection (Ctrl+Shift+N), separator, Import Collection (Ctrl+I), Export Collection (Ctrl+E), separator, Save Request (Ctrl+S), Save As (Ctrl+Shift+S), separator, Settings (Ctrl+,), separator, Exit (Ctrl+Q)
-
-Edit: Undo, Redo, separator, Cut, Copy, Paste, Select All
-
-View: Toggle Sidebar (Ctrl+B), Toggle AI Panel (Ctrl+Shift+A), Toggle Status Bar, separator, Zoom In/Out/Reset, separator, Full Screen (F11), DevTools (Ctrl+Shift+I, dev only)
-
-Collection: Run Collection (Ctrl+Shift+R), Run with Environment..., separator, Generate Test Suite (AI), Analyze Coverage (AI), Generate API Docs (AI)
-
-Run: Send Request (Ctrl+Enter), Resend Last (F5), separator, Run Tests (Ctrl+Shift+T), Cancel Request (Escape)
-
-AI: Generate Tests (Ctrl+Shift+G), Debug Response (Ctrl+Shift+D), Open AI Chat (Ctrl+Shift+A), separator, AI Settings...
-
-Help: Keyboard Shortcuts (Ctrl+/), Documentation, Report Bug, separator, Check for Updates, About ATX Desktop
-
-SPEC:
-- Menu items send IPC messages to renderer for actions (e.g., 'menu:new-request')
-- macOS: use role-based menu (app name menu with About, Preferences, Quit)
-- Platform detection: process.platform === 'darwin' for macOS-specific items
-- DevTools menu item only visible in development mode
-
-FILES TO MODIFY:
-- apps/desktop/src/main/index.ts — Import and call setupMenu() after window creation
-
-TypeScript strict mode.
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P2 - Start Local Express API from Electron
 
-### Prompt P2.2: System Tray + Notifications
+```text
+Implement the local API startup flow for ATX Desktop.
 
-```
-GOAL: Add system tray icon with context menu and native OS notifications for schedule run results.
+Files to inspect:
+- apps/api/src/app.ts
+- apps/api/src/server.ts
+- apps/api/src/config/env.ts
+- apps/api/src/config/database.ts
+- apps/desktop/src/main/local-api-server.ts
+- apps/desktop/src/main/index.ts
+- apps/desktop/src/shared/ipc-channels.ts
+- apps/desktop/src/shared/ipc-schemas.ts
 
-FILES TO CREATE:
-- apps/desktop/src/main/tray.ts — Create Tray icon, context menu (Open, Quick Request, Scheduled Runs status, Last Run status, Quit). Tray icon states: normal, running (green dot), failed (red dot), update (blue badge).
+Files to modify or create:
+- apps/api/src/server.ts if it needs an exported start function
+- apps/api/src/config/runtime.ts
+- apps/desktop/src/main/local-api-server.ts
+- apps/desktop/src/main/index.ts
+- apps/desktop/src/preload/index.ts
+- apps/desktop/src/shared/desktop-api.types.ts
 
-SPEC:
-- Minimize to tray: when user closes window and "minimize to tray" setting is true, hide window instead of quitting
-- Tray double-click: show/focus window
-- Native notifications: use Electron's Notification API for schedule run failures
-- Notification click: focus window, navigate to dashboard
+Implementation requirements:
+- Refactor API server startup so Electron can start the Express app programmatically without spawning an unmanaged shell command.
+- Keep normal npm run dev:api and npm run build:api behavior working.
+- Start the local API on 127.0.0.1 and port 0 in desktop mode.
+- Capture the chosen port and expose http://127.0.0.1:{port} through window.atxDesktop.getApiBaseUrl().
+- Wait for /health to return success before marking desktop runtime ready.
+- Add ATX_RUNTIME_MODE parsing with Zod. Allowed values: web, desktop.
+- Desktop mode must not require MONGODB_URI during this prompt if SQLite is not implemented yet; use a controlled temporary compatibility path or clear startup status that the next prompt will complete.
+- The local API must not listen on 0.0.0.0.
+- Shut down the API cleanly when Electron quits.
 
-FILES TO MODIFY:
-- apps/desktop/src/main/index.ts — Import and call setupTray(), handle window close event for minimize-to-tray
-- apps/desktop/src/preload/index.ts — Add onNotification callback
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run build:api
+- npm run build:desktop
 
-TypeScript strict mode.
-```
-
----
-
-### Prompt P2.3: File Dialogs + Auto-Updater
-
-```
-GOAL: Implement native file open/save dialogs for import/export AND automatic app updates from GitHub Releases.
-
-FILES TO CREATE:
-- apps/desktop/src/main/file-dialogs.ts — IPC handlers for 'file:open' (showOpenDialog with filters) and 'file:save' (showSaveDialog + writeFileSync)
-- apps/desktop/src/main/auto-updater.ts — Uses electron-updater to check GitHub Releases, download in background, notify renderer, install on user confirmation
-
-SPEC (File Dialogs):
-- openFile: accepts { filters, title, multiple } → returns { filePaths, fileContents[] }
-- saveFile: accepts { defaultPath, data, filters } → returns { filePath }
-- Filters: [{ name: 'JSON', extensions: ['json'] }, { name: 'YAML', extensions: ['yaml', 'yml'] }]
-
-SPEC (Auto-Updater):
-- Check for updates on app start (after 10s delay) and every 4 hours
-- Events: update-available → IPC 'update:available' to renderer, update-downloaded → IPC 'update:downloaded'
-- Renderer shows update banner: "Update v1.1.0 available. [Install & Restart]"
-- On user click: autoUpdater.quitAndInstall()
-- Log all update events with electron-log
-
-FILES TO MODIFY:
-- apps/desktop/src/main/index.ts — Register IPC handlers for file dialogs, start auto-updater
-- apps/desktop/src/preload/index.ts — Expose openFile, saveFile, checkForUpdates, installUpdate
-- apps/web/src/components/import/ImportModal.tsx — Use electronAPI.openFile() when in Electron mode, otherwise use file input
-
-TypeScript strict mode.
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P3 - Renderer Desktop API Initialization
 
-## Phase 3: Local-First Migration
+```text
+Implement renderer-side desktop integration so API calls wait for the desktop API base URL.
 
-### Prompt P3.1: Create Drizzle Database Package
+Files to inspect:
+- apps/web/src/services/api.ts
+- apps/web/src/app/App.tsx
+- apps/web/src/app/router.tsx
+- apps/web/src/stores/authStore.ts
+- apps/web/src/main.tsx
+- apps/desktop/src/preload/index.ts
+- apps/desktop/src/shared/desktop-api.types.ts
 
-```
-GOAL: Create a shared database package with Drizzle ORM and SQLite schemas for all 9 models.
+Files to create:
+- apps/web/src/services/desktop.service.ts
+- apps/web/src/types/desktop.ts if shared renderer-only types are needed
 
-FILES TO CREATE:
-- packages/db/package.json — deps: better-sqlite3, drizzle-orm, drizzle-kit, uuid
-- packages/db/tsconfig.json — TypeScript config
-- packages/db/src/schema.ts — All table definitions: users, collections, requests, environments, history, test_runs, schedules, schema_contracts, settings
-- packages/db/src/index.ts — Create connection: drizzle(new Database(path)), export db instance
-- packages/db/src/migrate.ts — Run Drizzle migrations on startup
-- packages/db/drizzle.config.ts — Drizzle Kit config for SQLite
+Files to modify:
+- apps/web/src/services/api.ts
+- apps/web/src/app/App.tsx
+- apps/web/src/app/router.tsx
 
-SCHEMA DETAILS (from Backend Schema Document):
-- users: id(text PK), email, name, passwordHash?, avatar?, theme, editorFontSize, timestamps
-- collections: id(text PK), name, description, userId(FK), foldersJson(text), authType, authConfigJson, sortOrder, timestamps
-- requests: id(text PK), name, collectionId(FK cascade), folderId?, userId(FK), method, url, headersJson, paramsJson, bodyMode, bodyContent, bodyContentType, authType, authConfigJson, sortOrder, testScript, preRequestScript, timestamps
-- environments: id(text PK), name, userId(FK), variablesJson, isDefault, timestamps
-- history: id(text PK), userId(FK), requestJson, responseJson, collectionId?, requestId?, environmentName?, executedAt
-- test_runs: id(text PK), userId(FK), collectionId(FK), collectionName, environmentId?, trigger, status, resultsJson, totalRequests, completedRequests, totalTestsPassed, totalTestsFailed, totalDuration, startedAt, completedAt, timestamps
-- schedules: id(text PK), userId(FK), collectionId(FK), collectionName, environmentId?, cronExpression, label, enabled, webhookUrl?, notifyEmail?, lastRunAt?, lastRunStatus?, lastRunId?, nextRunAt?, timestamps
-- schema_contracts: id(text PK), userId(FK), requestIdentifier, collectionId?, contractSchemaJson, sampleCount, lastValidatedAt?, lastValidationPassed?, timestamps
-- settings: key(text PK), value(text), updatedAt
+Implementation requirements:
+- Add a small desktop service wrapper. It is the only web-side code that directly reads window.atxDesktop.
+- Export isDesktopRuntime, getDesktopRuntimeInfo, and getDesktopApiBaseUrl.
+- Modify apiClient setup so baseURL can be initialized before auth checks and data fetching.
+- Web mode keeps VITE_API_URL or http://localhost:8000.
+- Desktop mode uses window.atxDesktop.getApiBaseUrl().
+- Add an app initialization state so the UI does not call the API before baseURL is set.
+- Use BrowserRouter in web mode and HashRouter in desktop packaged mode.
+- Keep existing auth interceptor behavior in web mode.
+- Do not redirect desktop users to /login after startup.
 
-All IDs are UUIDs generated with crypto.randomUUID().
-All JSON columns are text that get JSON.parse/JSON.stringify at the service layer.
-All dates stored as ISO 8601 text strings.
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run build:web
+- npm run build:desktop
 
-ALSO MODIFY:
-- package.json (root) — Add "packages/db" to workspaces
-- apps/api/package.json — Add "@atx/db" as dependency
-
-TypeScript strict mode.
-```
-
----
-
-### Prompt P3.2: Migrate Collection & Request Services to Drizzle
-
-```
-GOAL: Migrate the collection and request services from Mongoose/MongoDB to Drizzle/SQLite.
-
-FILES TO MODIFY:
-- apps/api/src/modules/collections/collection.service.ts — Replace all Mongoose operations with Drizzle queries using @atx/db
-- apps/api/src/modules/requests/request.service.ts — Replace all Mongoose operations with Drizzle queries
-
-MIGRATION PATTERN:
-1. Import { db, collections, requests } from '@atx/db'
-2. Import { eq, and, asc, desc } from 'drizzle-orm'
-3. Replace Collection.find({ userId }) → db.select().from(collections).where(eq(collections.userId, userId)).all()
-4. Replace new Collection({...}).save() → db.insert(collections).values({ id: crypto.randomUUID(), ...data }).returning().get()
-5. Replace Collection.findByIdAndUpdate() → db.update(collections).set({...}).where(eq(collections.id, id)).returning().get()
-6. Replace Collection.findByIdAndDelete() → db.delete(collections).where(eq(collections.id, id))
-7. JSON columns: parse on read (JSON.parse(row.foldersJson)), stringify on write (JSON.stringify(folders))
-8. Keep the same service interface — only change the implementation
-9. Handle cascade deletes manually: when collection deleted, delete all its requests
-
-TypeScript strict mode. Services NEVER access req/res directly.
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P4 - Desktop Runtime Auth Bypass and Local User
 
-### Prompt P3.3: Migrate Remaining Services (Environment, History, TestRun, Schedule, SchemaContract)
+```text
+Implement desktop runtime auth behavior and local user bootstrap.
 
+Files to inspect:
+- apps/api/src/middleware/authenticate.ts
+- apps/api/src/modules/auth/auth.routes.ts
+- apps/api/src/modules/auth/auth.controller.ts
+- apps/api/src/modules/auth/auth.service.ts
+- apps/api/src/models/User.model.ts
+- apps/web/src/stores/authStore.ts
+- apps/web/src/app/router.tsx
+
+Files to create:
+- apps/api/src/modules/auth/desktop-auth.service.ts
+- apps/api/src/config/runtime.ts if not already created
+
+Files to modify:
+- apps/api/src/middleware/authenticate.ts
+- apps/api/src/config/env.ts
+- apps/web/src/stores/authStore.ts
+- apps/web/src/app/router.tsx
+
+Implementation requirements:
+- In web mode, preserve current JWT access token and refresh cookie behavior.
+- In desktop mode, attach a local user identity to authenticated API requests.
+- Use local user ID local-user, email local@atx.desktop, and name Local User.
+- Desktop mode must not require login or register before showing the workbench.
+- Desktop mode should represent auth state in the frontend as authenticated local user.
+- Keep services receiving a typed userId.
+- Do not remove web login/register pages.
+- Do not weaken web auth behavior.
+- Keep the standard API response envelope.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test -w apps/api
+- npm run build:web
+- npm run build:api
+
+Stop and report exact failures if verification fails.
 ```
-GOAL: Migrate all remaining services from Mongoose to Drizzle.
 
-FILES TO MODIFY:
+## Prompt P5 - Add SQLite and Drizzle Package
+
+```text
+Implement the desktop SQLite/Drizzle database package.
+
+Files to inspect:
+- docs/Desktop_App_05_Backend_Schema_Document.md
+- package.json
+- packages/shared/src/types
+
+Files to create:
+- packages/db/package.json
+- packages/db/tsconfig.json
+- packages/db/src/client.ts
+- packages/db/src/schema.ts
+- packages/db/src/migrations.ts
+- packages/db/src/index.ts
+- packages/db/src/repositories/index.ts
+- packages/db/src/repositories/users.repository.ts
+- packages/db/src/repositories/settings.repository.ts
+- packages/db/src/repositories/collections.repository.ts
+- packages/db/src/repositories/folders.repository.ts
+- packages/db/src/repositories/requests.repository.ts
+- packages/db/src/repositories/environments.repository.ts
+- packages/db/src/repositories/history.repository.ts
+- packages/db/src/repositories/test-runs.repository.ts
+- packages/db/src/repositories/schedules.repository.ts
+- packages/db/src/repositories/schema-contracts.repository.ts
+- packages/db/src/repositories/secret-references.repository.ts
+- packages/db/src/repositories/certificates.repository.ts
+- packages/db/src/repositories/backups.repository.ts
+
+Implementation requirements:
+- Add packages/db to npm workspaces through existing workspace pattern.
+- Use drizzle-orm and better-sqlite3.
+- Implement all tables listed in the backend schema document.
+- Use ISO string timestamps.
+- Validate JSON text columns before returning data from repositories.
+- Add repository methods for users, settings, collections, folders, requests, environments, history, test runs, schedules, schema contracts, secret references, certificates, and backups.
+- Use typed inputs and typed return values.
+- Do not store secret values in SQLite. Store only references.
+- Add migration bootstrap that creates tables idempotently.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+
+Stop and report exact failures if verification fails.
+```
+
+## Prompt P6 - Add API Data Provider Boundary
+
+```text
+Implement the API data provider boundary for web and desktop modes.
+
+Files to inspect:
+- apps/api/src/models
+- apps/api/src/modules/collections/collection.service.ts
+- apps/api/src/modules/requests/request.service.ts
 - apps/api/src/modules/environments/environment.service.ts
 - apps/api/src/modules/history/history.service.ts
 - apps/api/src/modules/test-runs/test-run.service.ts
-- apps/api/src/modules/test-runs/test-trend.service.ts
 - apps/api/src/modules/schedules/schedule.service.ts
 - apps/api/src/modules/schema-validator/schema-validator.service.ts
+- packages/db/src/repositories
+
+Files to create:
+- apps/api/src/data/database-provider.ts
+- apps/api/src/data/mongo-provider.ts
+- apps/api/src/data/sqlite-provider.ts
+
+Files to modify:
+- apps/api/src/config/database.ts
+- apps/api/src/config/runtime.ts
+- apps/api/src/modules/auth/desktop-auth.service.ts
+
+Implementation requirements:
+- Define a typed AtxDataProvider interface with repositories for users, collections, folders, requests, environments, history, testRuns, schedules, schemaContracts, settings, secretReferences, certificates, and backups.
+- Implement mongo provider by wrapping current Mongoose model behavior where possible.
+- Implement sqlite provider by using packages/db repositories.
+- Select provider based on ATX_RUNTIME_MODE.
+- Keep provider selection centralized.
+- Do not rewrite every service in this prompt. Create the boundary and migrate local user bootstrap plus settings if needed to prove the pattern.
+- Keep web mode behavior unchanged.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test -w apps/api
+- npm run build:api
+
+Stop and report exact failures if verification fails.
+```
+
+## Prompt P7 - Migrate Core Services to Provider
+
+```text
+Migrate ATX core persistence services to the data provider boundary.
+
+Files to inspect:
+- apps/api/src/data/database-provider.ts
+- apps/api/src/modules/collections/collection.service.ts
+- apps/api/src/modules/requests/request.service.ts
+- apps/api/src/modules/environments/environment.service.ts
+- apps/api/src/modules/history/history.service.ts
+- apps/api/src/modules/executor/executor.service.ts
+- apps/api/src/modules/import/import.controller.ts
+- apps/api/src/modules/import/parsers/postman.parser.ts
+
+Files to modify:
+- apps/api/src/modules/collections/collection.service.ts
+- apps/api/src/modules/requests/request.service.ts
+- apps/api/src/modules/environments/environment.service.ts
+- apps/api/src/modules/history/history.service.ts
+- apps/api/src/modules/executor/executor.service.ts
+- apps/api/src/data/mongo-provider.ts
+- apps/api/src/data/sqlite-provider.ts
+
+Implementation requirements:
+- Move collections, folders, saved requests, environments, and history to repository access.
+- Preserve existing route paths and response shapes.
+- Preserve validation behavior.
+- Desktop mode persists data in SQLite.
+- Web mode persists data in MongoDB.
+- Environment secret values should support secretRefId metadata and redact values in desktop exports.
+- Executor should record history through provider.
+- Services must not import Express types.
+- Add focused tests for desktop SQLite CRUD and web-mode provider behavior where feasible.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test -w apps/api
+- npm run build:api
+
+Stop and report exact failures if verification fails.
+```
+
+## Prompt P8 - Migrate Runner, Schedules, Schema, Dashboard
+
+```text
+Migrate runner, schedules, schema validator, dashboard, and trends to the provider boundary.
+
+Files to inspect:
+- apps/api/src/modules/test-runner/test-runner.service.ts
+- apps/api/src/modules/collection-runner/collection-runner.service.ts
+- apps/api/src/modules/test-runs/test-run.service.ts
+- apps/api/src/modules/test-runs/test-trend.service.ts
+- apps/api/src/modules/schedules/schedule.service.ts
+- apps/api/src/modules/schedules/schedule.worker.ts
+- apps/api/src/modules/schema-validator/schema-validator.service.ts
 - apps/api/src/modules/dashboard/dashboard.service.ts
+- apps/api/src/modules/environment-matrix/environment-matrix.service.ts
 
-MIGRATION PATTERN (same as P3.2):
-- Import from '@atx/db'
-- Replace Mongoose queries with Drizzle equivalents
-- Parse/stringify JSON columns
-- Keep service interfaces unchanged
-- For history TTL: add a cleanup function that deletes entries older than 90 days, called on app start and every 24 hours
-- For schedule worker: keep node-cron logic, just change DB queries
-- For dashboard aggregation: SQLite supports GROUP BY, SUM, COUNT — use SQL aggregations instead of in-memory loops where possible
+Files to modify:
+- The service files listed above
+- apps/api/src/data/mongo-provider.ts
+- apps/api/src/data/sqlite-provider.ts
+- packages/db/src/repositories/test-runs.repository.ts
+- packages/db/src/repositories/schedules.repository.ts
+- packages/db/src/repositories/schema-contracts.repository.ts
 
-TypeScript strict mode. Services NEVER access req/res directly.
+Implementation requirements:
+- Test runs persist through provider.
+- Collection runner saves results through provider.
+- Schedules persist through provider and run only while desktop app or tray process is active.
+- Schema contracts persist through provider.
+- Dashboard and test trends read from provider.
+- Preserve route paths and response envelope.
+- Add tests for scheduled run persistence, test trend reads, and schema contract upsert behavior.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test -w apps/api
+- npm run build:api
+
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P9 - Desktop Settings, Secrets, and Keychain
 
-### Prompt P3.4: Simplify Auth for Desktop Mode
+```text
+Implement desktop settings and keychain-backed secrets.
 
-```
-GOAL: Make authentication optional in desktop mode — single-user, no login required.
+Files to inspect:
+- docs/Desktop_App_04_UI_UX_Design_Brief.md
+- docs/Desktop_App_05_Backend_Schema_Document.md
+- apps/web/src/styles/variables.css
+- apps/web/src/app/router.tsx
+- apps/desktop/src/preload/index.ts
+- apps/desktop/src/shared/ipc-schemas.ts
+- packages/db/src/repositories/settings.repository.ts
+- packages/db/src/repositories/secret-references.repository.ts
 
-FILES TO MODIFY:
-- apps/api/src/middleware/authenticate.ts — If DESKTOP_MODE=true, set req.userId to DEFAULT_USER_ID and skip JWT verification
-- apps/api/src/config/env.ts — Add DESKTOP_MODE boolean, DEFAULT_USER_ID constant
+Files to create:
+- apps/web/src/pages/SettingsPage.tsx
+- apps/web/src/pages/SettingsPage.module.css
+- apps/web/src/services/settings.service.ts
+- apps/web/src/stores/settingsStore.ts
+- apps/desktop/src/main/keychain.ts
+- apps/api/src/modules/settings/settings.routes.ts
+- apps/api/src/modules/settings/settings.controller.ts
+- apps/api/src/modules/settings/settings.service.ts
+- apps/api/src/modules/settings/settings.validation.ts
+- apps/api/src/modules/secrets/secrets.routes.ts
+- apps/api/src/modules/secrets/secrets.controller.ts
+- apps/api/src/modules/secrets/secrets.service.ts
+- apps/api/src/modules/secrets/secrets.validation.ts
 
-FILES TO CREATE:
-- apps/api/src/modules/auth/desktop-init.ts — On first launch: check if default user exists, if not create one with id=DEFAULT_USER_ID
+Files to modify:
+- apps/api/src/app.ts
+- apps/web/src/app/router.tsx
+- apps/web/src/components/layout/TopBar.tsx if Settings entry is not already present
 
-SPEC:
-- DEFAULT_USER_ID = '00000000-0000-0000-0000-000000000000' (fixed UUID)
-- In desktop mode: authenticate middleware becomes a pass-through that sets req.userId
-- Web mode: everything works as before (JWT auth)
-- The frontend auth store: if Electron detected, skip login page, go straight to main app
-- Settings page has optional "Set Passphrase" for security-conscious users (P4 feature)
+Implementation requirements:
+- Add Settings route with sections: General, AI, Proxy, Certificates, Data, Updates, About.
+- Use CSS Modules and existing variables only.
+- Add settings API module with Zod validation.
+- Add secrets API module for secret reference metadata.
+- Implement keychain IPC in Electron main and preload.
+- Store Gemini API key through keychain in desktop mode.
+- Store only secret references in SQLite.
+- Redact secrets in UI after save.
+- Web mode should keep existing env-based Gemini key behavior unless settings are explicitly supported.
 
-FILES TO MODIFY (frontend):
-- apps/web/src/stores/authStore.ts — Add isDesktopMode flag. If true: isAuthenticated=true, user={id: DEFAULT_USER_ID, name: 'Local User'}
-- apps/web/src/app/router.tsx — If desktop mode: skip PublicRoute redirect logic
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+- npm run build:web
+- npm run build:api
+- npm run build:desktop
 
-TypeScript strict mode.
-```
-
----
-
-## Phase 4: Advanced Features
-
-### Prompt P4.1: Settings Page
-
-```
-GOAL: Build a full settings page with tabbed navigation for General, AI, Proxy, Certificates, Data, and About sections.
-
-FILES TO CREATE:
-- apps/web/src/pages/SettingsPage.tsx — Full-page settings component with sidebar tab navigation
-- apps/web/src/pages/SettingsPage.module.css — Settings page CSS (CSS Modules, NO Tailwind)
-- apps/web/src/services/settings.service.ts — CRUD for settings (GET/PUT /api/settings)
-- apps/api/src/modules/settings/settings.service.ts — Read/write settings from SQLite settings table
-- apps/api/src/modules/settings/settings.controller.ts — GET /api/settings, PUT /api/settings
-- apps/api/src/modules/settings/settings.routes.ts — Router
-
-SECTIONS:
-- General: Theme toggle (dark/light/system), Font size slider (12-18), Auto-save toggle, Minimize to tray toggle
-- AI: API key input (stored in OS keychain via IPC), Model selector, Auto-test toggle, Daily limit, Temperature slider
-- Proxy: Use system proxy toggle, Custom proxy host:port, Auth credentials, No-proxy domains
-- Certificates: Global SSL verify toggle, Client certificate list (add/remove via file dialog), CA bundle path
-- Data: Database location (read-only display), Export all data button, Import data button, Reset app button (with confirm dialog)
-- About: App version, Check for updates button, Open-source licenses link
-
-DESIGN:
-- Left sidebar with tab labels and icons (Lucide)
-- Right content area fills remaining space
-- Toggle switches for boolean settings
-- Slider for numeric settings
-- Input fields with save-on-blur
-- Dark theme, var(--color-*) tokens, CSS Modules
-
-FILES TO MODIFY:
-- apps/web/src/app/router.tsx — Add /settings route
-- apps/web/src/components/sidebar/Sidebar.tsx — Add Settings icon button in footer
-- apps/api/src/app.ts — Register settings routes
-
-TypeScript strict mode. CSS Modules only. NO Tailwind.
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P10 - Native Import, Export, Backup, Restore
 
-### Prompt P4.2: Code Generation from Requests
+```text
+Implement native file dialogs and local backup/restore.
 
-```
-GOAL: Generate code snippets (cURL, Python requests, JavaScript fetch, Go http) from any saved request config.
+Files to inspect:
+- apps/web/src/components/import/ImportModal.tsx
+- apps/web/src/utils/curl-parser.ts
+- apps/web/src/utils/curl-generator.ts
+- apps/api/src/modules/import/import.routes.ts
+- apps/api/src/modules/import/import.controller.ts
+- apps/api/src/modules/import/parsers/postman.parser.ts
+- apps/desktop/src/main/file-dialogs.ts
+- apps/web/src/services/desktop.service.ts
+- packages/db/src/repositories/backups.repository.ts
 
-FILES TO CREATE:
-- apps/api/src/modules/code-gen/code-gen.service.ts — Pure function: takes request config → returns code string for each language
-- apps/api/src/modules/code-gen/code-gen.controller.ts — POST /api/code-gen with { method, url, headers, body, language }
-- apps/api/src/modules/code-gen/code-gen.routes.ts — Router
-- apps/api/src/modules/code-gen/generators/curl.ts — cURL command generator
-- apps/api/src/modules/code-gen/generators/python.ts — Python requests library generator
-- apps/api/src/modules/code-gen/generators/javascript.ts — fetch API generator
-- apps/api/src/modules/code-gen/generators/go.ts — Go net/http generator
-- apps/web/src/components/request-builder/CodeGenModal.tsx — Modal with language tabs, syntax-highlighted code preview, copy button
-- apps/web/src/components/request-builder/CodeGenModal.module.css — Modal styling
+Files to create:
+- apps/api/src/modules/backups/backups.routes.ts
+- apps/api/src/modules/backups/backups.controller.ts
+- apps/api/src/modules/backups/backups.service.ts
+- apps/api/src/modules/backups/backups.validation.ts
+- apps/web/src/services/backup.service.ts
 
-SPEC:
-- Each generator takes: { method, url, headers: Record<string,string>, body?: string, bodyType?: string }
-- cURL: curl -X METHOD URL -H 'key: value' -d 'body'
-- Python: import requests; response = requests.method(url, headers={}, json={})
-- JavaScript: const response = await fetch(url, { method, headers, body })
-- Go: req, _ := http.NewRequest(method, url, bytes.NewBuffer(body))
-- Variables ({{var}}) shown as-is in generated code with a comment explaining substitution
-- Modal triggered from "Code" button in request builder toolbar
+Files to modify:
+- apps/api/src/app.ts
+- apps/desktop/src/main/file-dialogs.ts
+- apps/desktop/src/preload/index.ts
+- apps/web/src/components/import/ImportModal.tsx
+- apps/web/src/services/desktop.service.ts
+- apps/web/src/pages/SettingsPage.tsx
 
-FILES TO MODIFY:
-- apps/api/src/app.ts — Register code-gen routes
-- apps/web/src/components/request-builder/RequestBuilder.tsx — Add "Code" button that opens CodeGenModal
+Implementation requirements:
+- Implement native open and save dialogs through window.atxDesktop.
+- Use native dialogs in desktop mode and current web-compatible file flows in web mode.
+- Support Postman JSON import through native open dialog.
+- Support ATX collection export through native save dialog.
+- Support request export as cURL.
+- Implement full backup with manifest.
+- Redact secrets in backup by default.
+- Validate restore payload before writing.
+- Create pre-restore backup before restore.
+- Preserve current data if restore fails.
 
-TypeScript strict mode. CSS Modules only. NO Tailwind.
-```
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+- npm run build:web
+- npm run build:api
+- npm run build:desktop
 
----
-
-### Prompt P4.3: Proxy & Certificate Configuration
-
-```
-GOAL: Implement proxy settings and client certificate management for the request executor.
-
-FILES TO CREATE:
-- apps/api/src/modules/executor/proxy-config.ts — Reads proxy settings from DB/env, creates proxy-agent for HTTP requests
-- apps/api/src/modules/executor/cert-config.ts — Reads client certificates from app data directory, creates HTTPS agent with custom CA/certs
-- apps/desktop/src/main/cert-manager.ts — IPC handlers: import cert file (copy to app data/certs/), list certs, delete cert
-
-FILES TO MODIFY:
-- apps/api/src/modules/executor/executor.service.ts — Apply proxy agent and HTTPS agent to outgoing requests based on settings
-- apps/desktop/src/preload/index.ts — Add importCert, listCerts, deleteCert to electronAPI
-
-SPEC:
-- Proxy: support HTTP/HTTPS/SOCKS5 proxies via proxy-agent npm package
-- System proxy: on Windows read from registry, on macOS from system preferences, on Linux from env vars (Electron provides this via app.resolveProxy())
-- Per-environment proxy override: environment variables can contain PROXY_URL
-- SSL: global toggle to disable verification (rejectUnauthorized: false)
-- Client certs: .pem or .pfx files, associated with hostname patterns
-- Certificate storage: apps data directory /certs/ subfolder
-- HTTPS agent: combine CA bundle + client certs per request based on target hostname
-
-TypeScript strict mode. Services NEVER access req/res directly.
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P11 - Native Menu, Tray, Notifications, Updates
 
-## Bonus: Standalone Prompts
+```text
+Implement desktop-native menu, tray, notifications, and updater.
 
-### Prompt B1: WebSocket Testing Support
+Files to inspect:
+- docs/Desktop_App_03_App_Flow_Document.md
+- docs/Desktop_App_04_UI_UX_Design_Brief.md
+- apps/desktop/src/main/menu.ts
+- apps/desktop/src/main/tray.ts
+- apps/desktop/src/main/updater.ts
+- apps/desktop/src/preload/index.ts
+- apps/web/src/hooks/useKeyboardShortcuts.ts
+- apps/web/src/app/router.tsx
 
-```
-GOAL: Add WebSocket testing capability — connect, send messages, view received messages in real-time.
+Files to create or modify:
+- apps/desktop/src/main/menu.ts
+- apps/desktop/src/main/tray.ts
+- apps/desktop/src/main/notifications.ts
+- apps/desktop/src/main/updater.ts
+- apps/desktop/src/shared/ipc-channels.ts
+- apps/desktop/src/shared/ipc-schemas.ts
+- apps/desktop/src/preload/index.ts
+- apps/web/src/services/desktop.service.ts
+- apps/web/src/hooks/useDesktopMenuCommands.ts
+- apps/web/src/components/layout/StatusBar.tsx
+- apps/web/src/pages/SettingsPage.tsx
 
-FILES TO CREATE:
-- apps/api/src/modules/websocket/websocket.service.ts — WebSocket client manager: connect, send, disconnect, collect messages
-- apps/web/src/components/request-builder/WebSocketPanel.tsx — WebSocket-specific UI: connection URL, connect/disconnect button, message input, received messages log with timestamps
-- apps/web/src/components/request-builder/WebSocketPanel.module.css
+Implementation requirements:
+- Create native menus: File, Edit, View, Request, Collection, Run, AI, Tools, Help.
+- Dispatch menu commands to renderer through typed IPC.
+- Implement renderer hook that maps menu commands to existing actions.
+- Add tray with Show ATX, New Request, Pause Schedules, Quit.
+- Add native notifications for schedule failure, long run complete, update available, backup complete while minimized.
+- Add update check and install flow using electron-updater.
+- Disable update install in local dev builds unless explicitly enabled.
+- Add settings controls for updates and minimize to tray.
 
-SPEC:
-- New method option in method selector: "WS" (alongside GET, POST, etc.)
-- When WS selected: request panel changes to WebSocket-specific layout
-- Connect: opens WebSocket connection via backend proxy
-- Message format: text (plain) or JSON (pretty-printed)
-- Received messages: scrollable log with timestamp, direction (sent/received), message preview
-- Connection status indicator: 🟢 Connected / 🔴 Disconnected / 🟡 Connecting
-- Auto-reconnect option with configurable delay
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+- npm run build:desktop
 
-TypeScript strict mode. CSS Modules only. NO Tailwind.
-```
-
----
-
-### Prompt B2: GraphQL Support
-
-```
-GOAL: Add GraphQL query/mutation support with schema introspection and query editor.
-
-FILES TO CREATE:
-- apps/api/src/modules/graphql/graphql.service.ts — Execute GraphQL queries via HTTP POST, introspect schema
-- apps/web/src/components/request-builder/GraphQLPanel.tsx — GraphQL-specific UI: query editor (Monaco), variables editor, schema explorer sidebar
-- apps/web/src/components/request-builder/GraphQLPanel.module.css
-
-SPEC:
-- New method option: "GQL" in method selector
-- When GQL selected: request panel shows GraphQL-specific layout
-- Query editor: Monaco with GraphQL syntax highlighting
-- Variables panel: JSON editor for query variables
-- Schema explorer: introspect endpoint, show types/fields in a tree
-- Auto-complete: based on introspected schema (if available)
-- Response: standard response viewer for JSON results
-- Headers: standard headers panel (for auth tokens)
-
-TypeScript strict mode. CSS Modules only. NO Tailwind.
+Stop and report exact failures if verification fails.
 ```
 
----
+## Prompt P12 - Proxy, Certificates, and Code Generation
 
-### Prompt B3: Multi-Window Tab Detach
+```text
+Implement proxy settings, client certificates, and code generation.
 
+Files to inspect:
+- apps/api/src/modules/executor/executor.service.ts
+- apps/api/src/utils/ssrf-guard.ts
+- apps/web/src/components/request-builder/RequestBuilder.tsx
+- apps/web/src/components/request-builder/AuthConfig.tsx
+- apps/web/src/styles/variables.css
+- apps/desktop/src/main/proxy.ts if it exists
+- apps/desktop/src/main/certificates.ts if it exists
+- packages/db/src/repositories/certificates.repository.ts
+
+Files to create:
+- apps/desktop/src/main/proxy.ts
+- apps/desktop/src/main/certificates.ts
+- apps/api/src/modules/executor/proxy-config.ts
+- apps/api/src/modules/executor/certificate-config.ts
+- apps/api/src/modules/certificates/certificates.routes.ts
+- apps/api/src/modules/certificates/certificates.controller.ts
+- apps/api/src/modules/certificates/certificates.service.ts
+- apps/api/src/modules/certificates/certificates.validation.ts
+- apps/api/src/modules/code-gen/code-gen.routes.ts
+- apps/api/src/modules/code-gen/code-gen.controller.ts
+- apps/api/src/modules/code-gen/code-gen.service.ts
+- apps/api/src/modules/code-gen/code-gen.validation.ts
+- apps/web/src/components/request-builder/CodeGenerationModal.tsx
+- apps/web/src/components/request-builder/CodeGenerationModal.module.css
+
+Files to modify:
+- apps/api/src/app.ts
+- apps/api/src/modules/executor/executor.service.ts
+- apps/web/src/components/request-builder/RequestBuilder.tsx
+- apps/web/src/pages/SettingsPage.tsx
+- apps/desktop/src/preload/index.ts
+
+Implementation requirements:
+- Add proxy modes: system, manual, none.
+- Store proxy settings in Settings.
+- Store proxy auth secrets through keychain references.
+- Apply proxy config only in executor layer.
+- Add certificate import through native file dialog.
+- Copy certificate files into app data.
+- Store certificate passphrase in keychain.
+- Apply certificate per request or collection config.
+- Add code generation for cURL, JavaScript fetch, Python requests, and Go net/http.
+- Redact secrets in generated code by default.
+- Use CSS Modules and variables for the code generation modal.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+- npm run build:web
+- npm run build:api
+- npm run build:desktop
+
+Stop and report exact failures if verification fails.
 ```
-GOAL: Allow users to detach request tabs into separate windows for multi-monitor workflows.
 
-FILES TO CREATE:
-- apps/desktop/src/main/window-manager.ts — Manages multiple BrowserWindow instances, IPC routing between windows
+## Prompt P13 - Desktop Packaging and Smoke Tests
 
-SPEC:
-- Right-click tab → "Open in New Window"
-- Drag tab outside main window → detaches into new window
-- Each window is a full BrowserWindow loading the same React app
-- Window state synced via IPC: if a tab is moved to a new window, both windows update their tab bars
-- Request data shared via the same local Express server (both windows hit same localhost:{port})
-- When detached window closed: tab returns to main window
+```text
+Implement desktop packaging and smoke tests for ATX Desktop.
 
-TypeScript strict mode.
+Files to inspect:
+- apps/desktop/electron-builder.yml
+- apps/desktop/package.json
+- package.json
+- tests
+
+Files to create:
+- tests/desktop/desktop-smoke.spec.ts
+- tests/desktop/helpers/launchDesktop.ts
+- .github/workflows/desktop-build.yml if CI workflows are desired for this repo stage
+
+Files to modify:
+- apps/desktop/electron-builder.yml
+- apps/desktop/package.json
+- package.json
+
+Implementation requirements:
+- Configure electron-builder targets: Windows NSIS, Windows portable, macOS DMG and ZIP, Linux AppImage and DEB.
+- Windows is the first required target.
+- Ensure packaged app includes built web renderer and built API code.
+- Ensure app data writes to Electron userData path, not install directory.
+- Add Playwright Electron smoke test or equivalent Electron launch test.
+- Smoke test should launch app, obtain API base URL, call /health, render workbench, create a collection, save a request, restart, and verify persistence.
+- Add scripts for desktop smoke tests.
+- CI workflow should run type-check, lint, tests, web build, API build, desktop build, and package command where supported.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+- npm run build:web
+- npm run build:api
+- npm run build:desktop
+- npm run package:desktop
+
+Stop and report exact failures if verification fails.
 ```
+
+## Prompt P14 - Final Documentation and Acceptance Check
+
+```text
+Perform the final documentation and acceptance check for ATX Desktop.
+
+Files to inspect:
+- docs/Desktop_App_01_Product_Requirements_Document.md
+- docs/Desktop_App_02_Technical_Requirements_Document.md
+- docs/Desktop_App_03_App_Flow_Document.md
+- docs/Desktop_App_04_UI_UX_Design_Brief.md
+- docs/Desktop_App_05_Backend_Schema_Document.md
+- docs/Desktop_App_06_Implementation_Plan.md
+- docs/Desktop_App_07_Master_Prompts.md
+- README.md
+- AGENTS.md
+- package.json
+
+Implementation requirements:
+- Cross-check docs against implemented file paths and scripts.
+- Update docs only if implementation changed names, paths, commands, or behavior.
+- Confirm docs separate web mode from desktop mode.
+- Confirm docs mention ATX_RUNTIME_MODE=web|desktop.
+- Confirm docs mention window.atxDesktop preload API.
+- Confirm docs mention SQLite/Drizzle desktop storage and MongoDB web storage.
+- Confirm prompts include verification commands.
+- Confirm no doc contains unresolved planning markers such as incomplete task labels or filler text.
+- Do not change source code in this prompt unless documentation reveals a clear mismatch that prevents the app from building or running.
+
+Verification commands:
+- npm run type-check
+- npm run lint
+- npm run test
+- npm run build:web
+- npm run build:api
+- npm run build:desktop
+
+Documentation checks:
+- Confirm all seven Desktop_App files exist.
+- Search docs for unresolved markers.
+- Search docs for incorrect old names if implementation changed names.
+
+Stop and report exact failures if verification fails.
+```
+
+## Quick Prompt Selection Guide
+
+| Need | Use prompt |
+|:--|:--|
+| Start desktop app package | P1 |
+| Start API from Electron | P2 |
+| Make renderer use desktop API URL | P3 |
+| Bypass login in desktop mode | P4 |
+| Add SQLite schema | P5 |
+| Add provider boundary | P6 |
+| Migrate collections, requests, envs, history | P7 |
+| Migrate runners, schedules, schema, dashboard | P8 |
+| Add settings and keychain | P9 |
+| Add file dialogs, backup, restore | P10 |
+| Add menu, tray, notifications, updater | P11 |
+| Add proxy, certificates, code generation | P12 |
+| Package and smoke test | P13 |
+| Final documentation check | P14 |
