@@ -1169,17 +1169,17 @@ Week 14:    Deploy + Launch 🚀
 
 ### Recommended First-Day Setup Checklist
 
-- [ ] Initialize monorepo with pnpm workspaces (or npm workspaces)
-- [ ] Create `apps/web` with Vite + React + TypeScript
-- [ ] Create `apps/api` with Express + TypeScript
-- [ ] Set up Docker Compose with MongoDB + Redis
-- [ ] Configure ESLint + Prettier across all packages
-- [ ] Set up Vitest for both frontend and backend
-- [ ] Create GitHub Actions CI pipeline (lint + test)
-- [ ] Deploy empty app to Vercel (frontend) + Railway (backend)
-- [ ] Set up Sentry for error tracking
-- [ ] Create `.env.example` with all required environment variables
-- [ ] Write first ADR: ADR-001 (project structure decision)
+- [x] Initialize monorepo with pnpm workspaces (or npm workspaces)
+- [x] Create `apps/web` with Vite + React + TypeScript
+- [x] Create `apps/api` with Express + TypeScript
+- [x] Set up Docker Compose with MongoDB + Redis
+- [x] Configure ESLint + Prettier across all packages
+- [x] Set up Vitest for both frontend and backend
+- [x] Create GitHub Actions CI pipeline (lint + test)
+- [x] Deploy empty app to Vercel (frontend) + Railway (backend)
+- [x] Set up Sentry for error tracking
+- [x] Create `.env.example` with all required environment variables
+- [x] Write first ADR: ADR-001 (project structure decision)
 
 ---
 
