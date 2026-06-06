@@ -124,10 +124,10 @@ export const AppRouter = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // In desktop mode there is no JWT-based auth session to check
-    if (!isDesktopRuntime()) {
-      checkAuth();
-    }
+    // checkAuth handles both modes:
+    // - Desktop: fetches /api/auth/me to hydrate the local user (no redirect)
+    // - Web: performs JWT refresh + /api/auth/me session check
+    checkAuth();
   }, [checkAuth]);
 
   return (
