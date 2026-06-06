@@ -5,10 +5,7 @@ import { collections, type CollectionRow, type InsertCollectionRow } from '../sc
 
 // ===== Types =====
 
-export interface AuthConfig {
-  type: 'none' | 'apikey' | 'bearer' | 'basic';
-  config: Record<string, unknown>;
-}
+import type { AuthConfig } from '@atx/shared/src/types/request.types';
 
 export interface CollectionRecord {
   id: string;
@@ -49,14 +46,16 @@ export interface ReorderCollectionInput {
 
 const AuthConfigSchema = z.object({
   type: z.enum(['none', 'apikey', 'bearer', 'basic']),
-  config: z.record(z.unknown()),
+  apiKey: z.object({ key: z.string(), value: z.string(), addTo: z.enum(['header', 'query']) }).optional(),
+  bearer: z.object({ token: z.string() }).optional(),
+  basic: z.object({ username: z.string(), password: z.string() }).optional(),
 });
 
 function parseAuthConfig(json: string): AuthConfig {
   try {
-    return AuthConfigSchema.parse(JSON.parse(json));
+    return AuthConfigSchema.parse(JSON.parse(json)) as AuthConfig;
   } catch {
-    return { type: 'none', config: {} };
+    return { type: 'none' };
   }
 }
 
@@ -106,7 +105,7 @@ export const collectionsRepository = {
       name: input.name,
       description: input.description ?? '',
       authType: input.auth?.type ?? 'none',
-      authConfigJson: JSON.stringify(input.auth ?? { type: 'none', config: {} }),
+      authConfigJson: JSON.stringify(input.auth ?? { type: 'none' }),
       sortOrder: input.sortOrder ?? 0,
       createdAt: now,
       updatedAt: now,

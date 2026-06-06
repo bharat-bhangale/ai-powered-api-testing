@@ -24,7 +24,8 @@ export async function startServer(): Promise<number> {
   const server = http.createServer(app);
 
   if (isDesktopMode) {
-    console.log('🖥️  Desktop mode — skipping MongoDB, binding to 127.0.0.1');
+    console.log('🖥️  Desktop mode — using SQLite on 127.0.0.1');
+    await connectDatabase();
   } else {
     // Web mode: connect to MongoDB if URI is provided
     if (env.MONGODB_URI) {

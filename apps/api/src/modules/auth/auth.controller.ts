@@ -135,9 +135,10 @@ export async function logout(_req: Request, res: Response): Promise<void> {
 export async function getMe(req: Request, res: Response): Promise<void> {
   // Desktop mode: return the synthetic local user without hitting the database.
   if (isDesktopMode) {
+    const localUser = await getLocalUser();
     res.json({
       success: true,
-      data: { user: getLocalUser() },
+      data: { user: localUser },
     });
     return;
   }

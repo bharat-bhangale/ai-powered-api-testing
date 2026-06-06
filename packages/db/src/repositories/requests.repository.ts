@@ -67,12 +67,11 @@ export interface MoveRequestInput {
 // ===== Validation =====
 
 const KVPSchema = z.object({
-  id: z.string().optional(),
+  id: z.string(),
   key: z.string(),
   value: z.string(),
   description: z.string(),
   enabled: z.boolean(),
-  secretRefId: z.string().optional(),
 });
 
 function parseKVP(json: string): KeyValuePair[] {
@@ -85,14 +84,16 @@ function parseKVP(json: string): KeyValuePair[] {
 
 const AuthConfigSchema = z.object({
   type: z.enum(['none', 'apikey', 'bearer', 'basic']),
-  config: z.record(z.unknown()),
+  apiKey: z.object({ key: z.string(), value: z.string(), addTo: z.enum(['header', 'query']) }).optional(),
+  bearer: z.object({ token: z.string() }).optional(),
+  basic: z.object({ username: z.string(), password: z.string() }).optional(),
 });
 
 function parseAuth(json: string): AuthConfig {
   try {
-    return AuthConfigSchema.parse(JSON.parse(json));
+    return AuthConfigSchema.parse(JSON.parse(json)) as AuthConfig;
   } catch {
-    return { type: 'none', config: {} };
+    return { type: 'none' };
   }
 }
 
@@ -161,7 +162,7 @@ export const requestsRepository = {
       bodyContent: input.body?.content ?? '',
       bodyContentType: input.body?.contentType ?? 'application/json',
       authType: input.auth?.type ?? 'none',
-      authConfigJson: JSON.stringify(input.auth ?? { type: 'none', config: {} }),
+      authConfigJson: JSON.stringify(input.auth ?? { type: 'none' }),
       sortOrder: input.sortOrder ?? 0,
       testScript: input.testScript ?? '',
       preRequestScript: input.preRequestScript ?? '',

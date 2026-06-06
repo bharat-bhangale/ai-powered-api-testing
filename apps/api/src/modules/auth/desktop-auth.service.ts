@@ -11,6 +11,8 @@
  *   - authStore.checkAuth() on the frontend (hydrates with LOCAL_USER)
  */
 
+import { dbProvider } from '../../data/database-provider';
+
 // ===== Constants =====
 
 /** Stable synthetic user ID used as the owner key for all desktop data. */
@@ -21,9 +23,9 @@ export interface LocalUserProfile {
   _id: string;
   email: string;
   name: string;
-  avatar: undefined;
+  avatar: string | undefined;
   preferences: {
-    theme: 'dark';
+    theme: string;
     editorFontSize: number;
   };
 }
@@ -32,17 +34,24 @@ export interface LocalUserProfile {
 
 /**
  * Returns the synthetic local user profile.
+ * Fetches the bootstrapped local user from the SQLite database using the provider boundary.
  * Called by GET /api/auth/me in desktop mode.
  */
-export function getLocalUser(): LocalUserProfile {
+export async function getLocalUser(): Promise<LocalUserProfile> {
+  const userRecord = await dbProvider.users.getById(LOCAL_USER_ID);
+  
+  if (!userRecord) {
+    throw new Error('Local user not bootstrapped in database');
+  }
+
   return {
-    _id: LOCAL_USER_ID,
-    email: 'local@atx.desktop',
-    name: 'Local User',
-    avatar: undefined,
+    _id: userRecord.id,
+    email: userRecord.email,
+    name: userRecord.name,
+    avatar: userRecord.avatar ?? undefined,
     preferences: {
-      theme: 'dark',
-      editorFontSize: 14,
+      theme: userRecord.theme,
+      editorFontSize: userRecord.editorFontSize,
     },
   };
 }
