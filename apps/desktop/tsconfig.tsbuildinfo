@@ -1,0 +1,1 @@
+{"root":["./src/main/index.ts","./src/main/local-api-server.ts","./src/main/window.ts","./src/preload/index.ts","./src/shared/desktop-api.types.ts","./src/shared/ipc-channels.ts","./src/shared/ipc-schemas.ts"],"version":"5.9.3"}
