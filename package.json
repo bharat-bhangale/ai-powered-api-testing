@@ -20,7 +20,7 @@
     "package:desktop": "npm run package -w apps/desktop",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "type-check": "tsc -b packages/shared packages/utils apps/api apps/web apps/desktop",
+    "type-check": "tsc -b packages/shared packages/utils packages/db apps/api apps/web apps/desktop",
     "test": "vitest run",
     "test:watch": "vitest"
   },
