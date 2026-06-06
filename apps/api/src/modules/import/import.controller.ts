@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
 import { parsePostmanCollection } from './parsers/postman.parser';
-import { Collection } from '../../models/Collection.model';
-import { SavedRequest } from '../../models/Request.model';
+import { dbProvider } from '../../data/database-provider';
+import crypto from 'crypto';
+import type { HttpMethod, RequestBody, AuthConfig } from '@atx/shared/src/types/request.types';
 
 /** POST /api/import/postman — Import a Postman Collection v2.1 JSON */
 export async function importPostman(req: Request, res: Response): Promise<void> {
@@ -18,47 +19,53 @@ export async function importPostman(req: Request, res: Response): Promise<void> 
 
     const parsed = parsePostmanCollection(postmanJson);
 
-    // Create collection with folders
-    const collection = await Collection.create({
+    // Create collection
+    const collection = await dbProvider.collections.create({
+      id: crypto.randomUUID(),
       name: parsed.name,
       description: parsed.description,
-      userId: req.userId,
-      folders: parsed.folders.map((f, i) => ({
-        name: f.name,
-        parentFolderId: null, // Flat import — nesting handled by folder names
-        sortOrder: i,
-      })),
+      userId: req.userId as string,
     });
 
-    // Build folder ID mapping (name → _id)
+    // Create folders
     const folderMap: Record<string, string> = {};
-    collection.folders.forEach((f) => {
-      folderMap[f.name] = f._id.toString();
-    });
+    for (let i = 0; i < parsed.folders.length; i++) {
+      const f = parsed.folders[i]!;
+      const folder = await dbProvider.folders.create({
+        id: crypto.randomUUID(),
+        collectionId: collection.id,
+        name: f.name,
+        parentFolderId: undefined, // Flat import
+        sortOrder: i,
+      });
+      folderMap[f.name] = folder.id;
+    }
 
     // Create requests
-    const requests = parsed.requests.map((r, i) => ({
-      name: r.name,
-      collectionId: collection._id,
-      folderId: r.folderPath ? folderMap[r.folderPath.split('/').pop()!] || null : null,
-      userId: req.userId,
-      method: r.method,
-      url: r.url,
-      headers: r.headers,
-      params: r.params,
-      body: r.body,
-      auth: r.auth,
-      sortOrder: i,
-    }));
-
-    if (requests.length > 0) {
-      await SavedRequest.insertMany(requests);
+    const requests = [];
+    for (let i = 0; i < parsed.requests.length; i++) {
+      const r = parsed.requests[i]!;
+      const request = await dbProvider.requests.create({
+        id: crypto.randomUUID(),
+        name: r.name,
+        collectionId: collection.id,
+        folderId: r.folderPath ? folderMap[r.folderPath.split('/').pop()!] || undefined : undefined,
+        userId: req.userId as string,
+        method: r.method as HttpMethod,
+        url: r.url,
+        headers: r.headers.map(h => ({ ...h, id: crypto.randomUUID() })),
+        params: r.params.map(p => ({ ...p, id: crypto.randomUUID() })),
+        body: r.body as unknown as RequestBody,
+        auth: r.auth as unknown as AuthConfig,
+        sortOrder: i,
+      });
+      requests.push(request);
     }
 
     res.status(201).json({
       success: true,
       data: {
-        collection: collection.toObject(),
+        collection: { ...collection, _id: collection.id, folders: Object.values(folderMap).map((id, index) => ({ _id: id, name: parsed.folders[index]?.name })) },
         requestCount: requests.length,
         folderCount: parsed.folders.length,
       },

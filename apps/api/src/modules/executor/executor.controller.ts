@@ -81,6 +81,8 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
       }
     }
     const result = await executorService.execute({
+      userId: req.userId,
+      environmentName,
       method,
       url: resolvedUrl,
       headers: headerObj,
@@ -94,21 +96,6 @@ export async function executeRequest(req: Request, res: Response): Promise<void>
     // ===== Persist globals if set =====
     if (environmentId && req.userId && result.globalsToSet && Object.keys(result.globalsToSet).length > 0) {
       await environmentService.updateVariables(req.userId, environmentId, result.globalsToSet);
-    }
-
-    // ===== Auto-save to history (fire-and-forget) =====
-    if (req.userId) {
-      historyService.create({
-        userId: req.userId as unknown as import('mongoose').Types.ObjectId,
-        request: {
-          method,
-          url: resolvedUrl,
-          headers: headerObj,
-          body: parsedBody,
-        },
-        response: result.response,
-        environmentName,
-      }).catch((err: unknown) => console.error('Failed to save history:', err));
     }
 
     res.json({ success: true, data: result });

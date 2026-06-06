@@ -1,8 +1,11 @@
-import { SavedRequest, type ISavedRequest } from '../../models/Request.model';
-import { Collection } from '../../models/Collection.model';
+import { dbProvider } from '../../data/database-provider';
+import crypto from 'crypto';
+import type { HttpMethod } from '@atx/shared/src/types/request.types';
 
 /**
  * Request service — CRUD for saved requests within collections.
+ * Business logic only — no req/res access.
+ * Uses the AtxDataProvider boundary for persistence.
  */
 export class RequestService {
   /**
@@ -16,46 +19,43 @@ export class RequestService {
       folderId?: string;
       method: string;
       url: string;
-      headers?: ISavedRequest['headers'];
-      params?: ISavedRequest['params'];
-      body?: ISavedRequest['body'];
-      auth?: ISavedRequest['auth'];
+      headers?: any[];
+      params?: any[];
+      body?: any;
+      auth?: any;
       testScript?: string;
       preRequestScript?: string;
     },
-  ): Promise<ISavedRequest> {
+  ) {
     // Verify the collection belongs to this user
-    const collection = await Collection.findOne({
-      _id: data.collectionId,
-      userId,
-    });
+    const collection = await dbProvider.collections.getById({ id: data.collectionId, userId });
     if (!collection) {
       throw new Error('Collection not found');
     }
 
-    const count = await SavedRequest.countDocuments({
-      collectionId: data.collectionId,
-    });
+    const existingRequests = await dbProvider.requests.listByCollection({ collectionId: data.collectionId, userId });
+    const count = existingRequests.length;
 
-    const request = new SavedRequest({
-      ...data,
+    const request = await dbProvider.requests.create({
+      id: crypto.randomUUID(),
       userId,
-      folderId: data.folderId || null,
+      ...data,
+      method: (data.method as HttpMethod) || 'GET',
       sortOrder: count,
     });
 
-    return request.save();
+    return { ...request, _id: request.id };
   }
 
   /**
    * Get a single saved request by ID.
    */
-  async getById(userId: string, requestId: string): Promise<ISavedRequest> {
-    const request = await SavedRequest.findOne({ _id: requestId, userId });
+  async getById(userId: string, requestId: string) {
+    const request = await dbProvider.requests.getById({ id: requestId, userId });
     if (!request) {
       throw new Error('Request not found');
     }
-    return request;
+    return { ...request, _id: request.id };
   }
 
   /**
@@ -64,44 +64,52 @@ export class RequestService {
   async update(
     userId: string,
     requestId: string,
-    data: Partial<
-      Pick<
-        ISavedRequest,
-        'name' | 'method' | 'url' | 'headers' | 'params' | 'body' | 'auth' | 'folderId' | 'sortOrder' | 'testScript' | 'preRequestScript'
-      >
-    >,
-  ): Promise<ISavedRequest> {
-    const request = await SavedRequest.findOneAndUpdate(
-      { _id: requestId, userId },
-      { $set: data },
-      { new: true },
-    );
-    if (!request) {
-      throw new Error('Request not found');
-    }
-    return request;
+    data: Partial<{
+      name: string;
+      method: string;
+      url: string;
+      headers: any[];
+      params: any[];
+      body: any;
+      auth: any;
+      folderId: string;
+      sortOrder: number;
+      testScript: string;
+      preRequestScript: string;
+    }>,
+  ) {
+    const request = await dbProvider.requests.update({
+      id: requestId,
+      userId,
+      ...data,
+      method: data.method ? (data.method as HttpMethod) : undefined,
+    });
+
+    return { ...request, _id: request.id };
   }
 
   /**
    * Delete a saved request.
    */
   async delete(userId: string, requestId: string): Promise<void> {
-    const result = await SavedRequest.deleteOne({ _id: requestId, userId });
-    if (result.deletedCount === 0) {
+    const request = await dbProvider.requests.getById({ id: requestId, userId });
+    if (!request) {
       throw new Error('Request not found');
     }
+    await dbProvider.requests.delete({ id: requestId, userId });
   }
 
   /**
    * Duplicate a saved request with " (copy)" suffix.
    */
-  async duplicate(userId: string, requestId: string): Promise<ISavedRequest> {
-    const original = await SavedRequest.findOne({ _id: requestId, userId });
+  async duplicate(userId: string, requestId: string) {
+    const original = await dbProvider.requests.getById({ id: requestId, userId });
     if (!original) {
       throw new Error('Request not found');
     }
 
-    const duplicate = new SavedRequest({
+    const duplicate = await dbProvider.requests.create({
+      id: crypto.randomUUID(),
       name: `${original.name} (copy)`,
       collectionId: original.collectionId,
       folderId: original.folderId,
@@ -115,7 +123,7 @@ export class RequestService {
       sortOrder: original.sortOrder + 1,
     });
 
-    return duplicate.save();
+    return { ...duplicate, _id: duplicate.id };
   }
 
   /**
@@ -124,9 +132,8 @@ export class RequestService {
   async listByCollection(
     userId: string,
     collectionId: string,
-  ): Promise<ISavedRequest[]> {
-    return SavedRequest.find({ collectionId, userId })
-      .sort({ sortOrder: 1 })
-      .lean() as unknown as ISavedRequest[];
+  ) {
+    const requests = await dbProvider.requests.listByCollection({ collectionId, userId });
+    return requests.map(r => ({ ...r, _id: r.id }));
   }
 }

@@ -4,11 +4,15 @@ import { validateUrl } from '../../utils/ssrf-guard';
 import { executeSandbox } from '../test-runner/sandbox';
 import { buildAtxGlobal } from '../test-runner/atx-api';
 import { VariableResolver } from './variable-resolver';
+import { dbProvider } from '../../data/database-provider';
+import crypto from 'crypto';
 
 /**
  * Parameters for executing an HTTP request.
  */
 interface ExecuteParams {
+  userId?: string;
+  environmentName?: string;
   method: string;
   url: string;
   headers: Record<string, string>;
@@ -52,6 +56,7 @@ interface ExecutionResult {
 /**
  * Executor service — makes HTTP calls on behalf of the user.
  * Uses SSRF guard, captures timing, and never throws on HTTP status codes.
+ * Auto-saves history to the data provider.
  */
 export class ExecutorService {
   async execute(params: ExecuteParams): Promise<ExecutionResult> {
@@ -158,7 +163,7 @@ export class ExecutorService {
         ? Buffer.byteLength(response.data, 'utf8')
         : 0;
 
-      return {
+      const result: ExecutionResult = {
         success: true,
         request: {
           resolvedUrl: finalUrl,
@@ -178,12 +183,25 @@ export class ExecutorService {
         preRequestError,
         globalsToSet,
       };
+
+      if (params.userId) {
+        dbProvider.history.record({
+          id: crypto.randomUUID(),
+          userId: params.userId,
+          environmentName: params.environmentName,
+          request: result.request,
+          response: result.response,
+          executedAt: result.executedAt,
+        }).catch(err => console.error('Failed to save history:', err));
+      }
+
+      return result;
     } catch (error: unknown) {
       const endTime = Date.now();
       const errObj = error instanceof Error ? error : new Error('Unknown error');
       const axiosError = error as { code?: string };
 
-      return {
+      const result: ExecutionResult = {
         success: false,
         request: {
           resolvedUrl: params.url,
@@ -204,6 +222,19 @@ export class ExecutorService {
         },
         executedAt: new Date().toISOString(),
       };
+
+      if (params.userId) {
+        dbProvider.history.record({
+          id: crypto.randomUUID(),
+          userId: params.userId,
+          environmentName: params.environmentName,
+          request: result.request,
+          response: result.response,
+          executedAt: result.executedAt,
+        }).catch(err => console.error('Failed to save history:', err));
+      }
+
+      return result;
     }
   }
 }

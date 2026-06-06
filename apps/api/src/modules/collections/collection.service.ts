@@ -1,10 +1,10 @@
-import mongoose from 'mongoose';
-import { Collection, type ICollection } from '../../models/Collection.model';
-import { SavedRequest } from '../../models/Request.model';
+import { dbProvider } from '../../data/database-provider';
+import crypto from 'crypto';
 
 /**
  * Collection service — CRUD operations for collections and folders.
  * Business logic only — no req/res access.
+ * Uses the AtxDataProvider boundary for persistence.
  */
 export class CollectionService {
   /**
@@ -14,22 +14,32 @@ export class CollectionService {
     userId: string,
     name: string,
     description?: string,
-  ): Promise<ICollection> {
-    const count = await Collection.countDocuments({ userId });
-    const collection = new Collection({
-      name,
-      description: description || '',
+  ) {
+    const id = crypto.randomUUID();
+    const collection = await dbProvider.collections.create({
+      id,
       userId,
-      sortOrder: count,
+      name,
+      description,
     });
-    return collection.save();
+    return { ...collection, _id: collection.id, folders: [] };
   }
 
   /**
-   * List all collections for a user with their saved requests.
+   * List all collections for a user with their embedded folders.
    */
   async list(userId: string) {
-    return Collection.find({ userId }).sort({ sortOrder: 1 }).lean();
+    const collections = await dbProvider.collections.listByUser(userId);
+    
+    // We fetch folders for each collection to match the legacy Mongoose shape
+    return Promise.all(collections.map(async (c) => {
+      const folders = await dbProvider.folders.listByCollection(c.id);
+      return {
+        ...c,
+        _id: c.id,
+        folders: folders.map(f => ({ ...f, _id: f.id })),
+      };
+    }));
   }
 
   /**
@@ -39,19 +49,22 @@ export class CollectionService {
     userId: string,
     collectionId: string,
   ) {
-    const collection = await Collection.findOne({
-      _id: collectionId,
-      userId,
-    });
+    const collection = await dbProvider.collections.getById({ id: collectionId, userId });
     if (!collection) {
       throw new Error('Collection not found');
     }
 
-    const requests = await SavedRequest.find({ collectionId })
-      .sort({ sortOrder: 1 })
-      .lean();
+    const folders = await dbProvider.folders.listByCollection(collectionId);
+    const requests = await dbProvider.requests.listByCollection({ collectionId, userId });
 
-    return { collection, requests };
+    return { 
+      collection: {
+        ...collection,
+        _id: collection.id,
+        folders: folders.map(f => ({ ...f, _id: f.id })),
+      }, 
+      requests: requests.map(r => ({ ...r, _id: r.id }))
+    };
   }
 
   /**
@@ -60,34 +73,28 @@ export class CollectionService {
   async update(
     userId: string,
     collectionId: string,
-    updates: Partial<Pick<ICollection, 'name' | 'description' | 'auth' | 'sortOrder'>>,
-  ): Promise<ICollection> {
-    const collection = await Collection.findOneAndUpdate(
-      { _id: collectionId, userId },
-      { $set: updates },
-      { new: true },
-    );
-    if (!collection) {
-      throw new Error('Collection not found');
-    }
-    return collection;
+    updates: { name?: string; description?: string; auth?: any; sortOrder?: number },
+  ) {
+    const collection = await dbProvider.collections.update({
+      id: collectionId,
+      userId,
+      ...updates
+    });
+
+    const folders = await dbProvider.folders.listByCollection(collectionId);
+
+    return {
+      ...collection,
+      _id: collection.id,
+      folders: folders.map(f => ({ ...f, _id: f.id })),
+    };
   }
 
   /**
    * Delete a collection and cascade-delete all its saved requests.
    */
   async delete(userId: string, collectionId: string): Promise<void> {
-    const collection = await Collection.findOne({
-      _id: collectionId,
-      userId,
-    });
-    if (!collection) {
-      throw new Error('Collection not found');
-    }
-
-    // Cascade: delete all requests in this collection
-    await SavedRequest.deleteMany({ collectionId });
-    await Collection.deleteOne({ _id: collectionId });
+    await dbProvider.collections.delete({ id: collectionId, userId });
   }
 
   /**
@@ -98,26 +105,19 @@ export class CollectionService {
     collectionId: string,
     folderName: string,
     parentFolderId?: string,
-  ): Promise<ICollection> {
-    const collection = await Collection.findOne({
-      _id: collectionId,
-      userId,
-    });
-    if (!collection) {
-      throw new Error('Collection not found');
-    }
+  ) {
+    // Verify collection ownership
+    const collection = await dbProvider.collections.getById({ id: collectionId, userId });
+    if (!collection) throw new Error('Collection not found');
 
-    const folderCount = collection.folders.length;
-    collection.folders.push({
-      _id: new mongoose.Types.ObjectId(),
+    await dbProvider.folders.create({
+      id: crypto.randomUUID(),
+      collectionId,
       name: folderName,
-      parentFolderId: parentFolderId
-        ? new mongoose.Types.ObjectId(parentFolderId)
-        : null,
-      sortOrder: folderCount,
+      parentFolderId,
     });
 
-    return collection.save();
+    return this.getCollectionWithFolders(userId, collectionId);
   }
 
   /**
@@ -128,16 +128,16 @@ export class CollectionService {
     collectionId: string,
     folderId: string,
     newName: string,
-  ): Promise<ICollection> {
-    const collection = await Collection.findOneAndUpdate(
-      { _id: collectionId, userId, 'folders._id': folderId },
-      { $set: { 'folders.$.name': newName } },
-      { new: true },
-    );
-    if (!collection) {
-      throw new Error('Collection or folder not found');
-    }
-    return collection;
+  ) {
+    const collection = await dbProvider.collections.getById({ id: collectionId, userId });
+    if (!collection) throw new Error('Collection not found');
+
+    await dbProvider.folders.update({
+      id: folderId,
+      name: newName,
+    });
+
+    return this.getCollectionWithFolders(userId, collectionId);
   }
 
   /**
@@ -148,26 +148,23 @@ export class CollectionService {
     userId: string,
     collectionId: string,
     folderId: string,
-  ): Promise<ICollection> {
-    const collection = await Collection.findOne({
-      _id: collectionId,
-      userId,
-    });
-    if (!collection) {
-      throw new Error('Collection not found');
-    }
+  ) {
+    const collection = await dbProvider.collections.getById({ id: collectionId, userId });
+    if (!collection) throw new Error('Collection not found');
 
-    // Move requests in this folder to root
-    await SavedRequest.updateMany(
-      { collectionId, folderId },
-      { $set: { folderId: null } },
-    );
+    await dbProvider.folders.delete(folderId);
 
-    // Remove the folder
-    collection.folders = collection.folders.filter(
-      (f) => f._id.toString() !== folderId,
-    );
+    return this.getCollectionWithFolders(userId, collectionId);
+  }
 
-    return collection.save();
+  private async getCollectionWithFolders(userId: string, collectionId: string) {
+    const collection = await dbProvider.collections.getById({ id: collectionId, userId });
+    if (!collection) throw new Error('Collection not found');
+    const folders = await dbProvider.folders.listByCollection(collectionId);
+    return {
+      ...collection,
+      _id: collection.id,
+      folders: folders.map(f => ({ ...f, _id: f.id })),
+    };
   }
 }
