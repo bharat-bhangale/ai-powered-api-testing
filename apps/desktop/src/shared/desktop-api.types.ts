@@ -5,7 +5,7 @@
  * when calling preload-bridged methods. It never imports Electron directly.
  */
 
-import type { RuntimeInfo, ApiBaseUrl } from './ipc-schemas';
+import type { RuntimeInfo, ApiBaseUrl, ServerStatus, ServerReadyPayload } from './ipc-schemas';
 
 /**
  * The API surface exposed to the renderer via contextBridge.
@@ -15,8 +15,24 @@ export interface AtxDesktopApi {
   /** Returns app version, platform, Electron/Chrome/Node versions */
   getRuntimeInfo: () => Promise<RuntimeInfo>;
 
-  /** Returns the local API server base URL (e.g., http://localhost:PORT) */
+  /**
+   * Returns the local API server base URL.
+   * If the server is still starting, `ready` is false and `url` is an empty string.
+   */
   getApiBaseUrl: () => Promise<ApiBaseUrl>;
+
+  /**
+   * Subscribe to server status changes pushed from the main process.
+   * Returns an unsubscribe function.
+   */
+  onServerStatus: (callback: (status: ServerStatus) => void) => () => void;
+
+  /**
+   * Subscribe to the one-shot "server ready" event.
+   * Fires once when the health check passes and the API is confirmed ready.
+   * Returns an unsubscribe function.
+   */
+  onServerReady: (callback: (payload: ServerReadyPayload) => void) => () => void;
 }
 
 /**

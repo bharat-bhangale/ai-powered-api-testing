@@ -21,6 +21,9 @@ export const CHANNEL_GET_API_BASE_URL = 'app:get-api-base-url' as const;
 /** Main → Renderer: local API server status update */
 export const CHANNEL_SERVER_STATUS = 'server:status' as const;
 
+/** Main → Renderer: fired once when health check passes and server is confirmed ready */
+export const CHANNEL_SERVER_READY = 'server:ready' as const;
+
 // ===== File Dialogs =====
 
 /** Renderer → Main: open a native file-open dialog */
@@ -54,4 +57,5 @@ export type IpcInvokeChannel =
 
 export type IpcSendChannel =
   | typeof CHANNEL_SERVER_STATUS
+  | typeof CHANNEL_SERVER_READY
   | typeof CHANNEL_UPDATE_AVAILABLE;

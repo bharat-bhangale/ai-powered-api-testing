@@ -3,8 +3,8 @@
  *
  * Responsibilities:
  * 1. Acquire single-instance lock
- * 2. Start the local API server (production) or use dev server
- * 3. Create the main BrowserWindow
+ * 2. Start the local API server (forked child process)
+ * 3. Wait for /health to pass before creating the BrowserWindow
  * 4. Register IPC handlers
  * 5. Manage app lifecycle (quit, activate)
  */
@@ -17,13 +17,15 @@ import {
   stopLocalServer,
   getApiBaseUrl,
   onServerStatusChange,
+  onServerReady,
 } from './local-api-server';
 import {
   CHANNEL_GET_RUNTIME_INFO,
   CHANNEL_GET_API_BASE_URL,
   CHANNEL_SERVER_STATUS,
+  CHANNEL_SERVER_READY,
 } from '../shared/ipc-channels';
-import type { RuntimeInfo, ApiBaseUrl } from '../shared/ipc-schemas';
+import type { RuntimeInfo, ApiBaseUrl, ServerReadyPayload } from '../shared/ipc-schemas';
 
 // ===== Single Instance Lock =====
 
@@ -42,27 +44,41 @@ if (!gotLock) {
 
   // ===== App Ready =====
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     log.info(`ATX Desktop v${app.getVersion()} starting...`);
     log.info(`Platform: ${process.platform} (${process.arch})`);
     log.info(`Packaged: ${app.isPackaged}`);
 
-    // Register IPC handlers before creating the window
+    // Register IPC handlers before any window is created
     registerIpcHandlers();
 
-    // Start local API server
-    startLocalServer();
-
-    // Forward server status changes to the renderer
+    // Forward every server status update to the renderer (if window is open)
     onServerStatusChange((status) => {
-      const window = getMainWindow();
-      if (window && !window.isDestroyed()) {
-        window.webContents.send(CHANNEL_SERVER_STATUS, status);
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(CHANNEL_SERVER_STATUS, status);
       }
     });
 
-    // Create the main window
+    // When the health check passes, send CHANNEL_SERVER_READY to the renderer
+    onServerReady((payload: ServerReadyPayload) => {
+      const win = getMainWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(CHANNEL_SERVER_READY, payload);
+      }
+    });
+
+    // Start the local API server. Waits until it sends { type: 'ready', port }
+    // and the /health poll succeeds before returning.
+    await startLocalServer();
+
+    // Create the window after the API is ready so the renderer can immediately
+    // call getApiBaseUrl() and get a valid response.
     createMainWindow();
+  }).catch((err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error('Fatal startup error:', msg);
+    app.quit();
   });
 
   // ===== macOS: Re-create window on dock click =====
@@ -112,6 +128,7 @@ function registerIpcHandlers(): void {
   /**
    * app:get-api-base-url
    * Returns the base URL for the local API server.
+   * `ready` is false and `url` is empty if the health check has not yet passed.
    */
   ipcMain.handle(CHANNEL_GET_API_BASE_URL, (): ApiBaseUrl => {
     return getApiBaseUrl();
