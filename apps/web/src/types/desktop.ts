@@ -62,6 +62,11 @@ export interface AtxDesktopApi {
   getApiBaseUrl: () => Promise<DesktopApiBaseUrl>;
   onServerStatus: (callback: (status: DesktopServerStatus) => void) => () => void;
   onServerReady: (callback: (payload: DesktopServerReadyPayload) => void) => () => void;
+  
+  showOpenDialog: (options?: any) => Promise<{ filePath: string; content: string; fileName: string } | null>;
+  showSaveDialog: (options?: any) => Promise<string | null>;
+  onMenuCommand: (callback: (command: string) => void) => () => void;
+  onUpdateAvailable: (callback: (version: string) => void) => () => void;
 }
 
 declare global {

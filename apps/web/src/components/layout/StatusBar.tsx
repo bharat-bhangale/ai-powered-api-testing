@@ -3,6 +3,8 @@ import { EnvSelector } from '@/components/environment/EnvSelector';
 import { EnvManagerModal } from '@/components/environment/EnvManagerModal';
 import { AIUsageIndicator } from '@/components/ai/AIUsageIndicator';
 import { ThemeSwitcher } from '@/components/common/ThemeSwitcher/ThemeSwitcher';
+import { isDesktopRuntime } from '@/services/desktop.service';
+import { DownloadCloud } from 'lucide-react';
 import styles from './StatusBar.module.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -14,6 +16,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export const StatusBar = () => {
   const [showEnvManager, setShowEnvManager] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
 
   // Check backend connection on mount
   useEffect(() => {
@@ -27,6 +30,17 @@ export const StatusBar = () => {
     };
     checkConnection();
     const interval = setInterval(checkConnection, 60_000); // Re-check every 60s
+
+    if (isDesktopRuntime() && window.atxDesktop) {
+      const unsubscribe = window.atxDesktop.onUpdateAvailable((version) => {
+        setUpdateVersion(version);
+      });
+      return () => {
+        clearInterval(interval);
+        unsubscribe();
+      };
+    }
+
     return () => clearInterval(interval);
   }, []);
 
@@ -42,6 +56,11 @@ export const StatusBar = () => {
           <AIUsageIndicator />
         </div>
         <div className={styles.right}>
+          {updateVersion && (
+            <span className={styles.updateBadge} title={`Update ${updateVersion} available. Restart ATX to install.`}>
+              <DownloadCloud size={14} /> Update Ready
+            </span>
+          )}
           <span className={styles.shortcut}>
             <kbd>Ctrl</kbd>+<kbd>Enter</kbd> Send
           </span>

@@ -6,6 +6,8 @@ import { TestRunnerService } from '../test-runner/test-runner.service';
 import { TestRunService } from '../test-runs/test-run.service';
 import type { IRequestRunResult, ITestResult } from '../test-runs/TestRun.model';
 import { Environment } from '../../models/Environment.model';
+import type { TestRunRecord } from '@atx/db';
+import type { RequestRecord } from '@atx/db';
 import { ChainResolver, type ChainContextData } from './chain-resolver';
 
 // ===== Types =====

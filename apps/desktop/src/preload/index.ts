@@ -11,6 +11,10 @@ import {
   CHANNEL_GET_API_BASE_URL,
   CHANNEL_SERVER_STATUS,
   CHANNEL_SERVER_READY,
+  CHANNEL_FILE_OPEN,
+  CHANNEL_FILE_SAVE,
+  CHANNEL_MENU_COMMAND,
+  CHANNEL_UPDATE_AVAILABLE,
 } from '../shared/ipc-channels';
 import type { AtxDesktopApi } from '../shared/desktop-api.types';
 import type { ServerStatus, ServerReadyPayload } from '../shared/ipc-schemas';
@@ -47,6 +51,34 @@ const atxDesktopApi: AtxDesktopApi = {
     ipcRenderer.once(CHANNEL_SERVER_READY, handler);
     return () => {
       ipcRenderer.removeListener(CHANNEL_SERVER_READY, handler);
+    };
+  },
+
+  /** Invoke: Native open file dialog */
+  showOpenDialog: (options?: any) => ipcRenderer.invoke(CHANNEL_FILE_OPEN, options),
+
+  /** Invoke: Native save file dialog */
+  showSaveDialog: (options?: any) => ipcRenderer.invoke(CHANNEL_FILE_SAVE, options),
+
+  /** Subscribe to menu commands */
+  onMenuCommand: (callback: (command: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: string): void => {
+      callback(command);
+    };
+    ipcRenderer.on(CHANNEL_MENU_COMMAND, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNEL_MENU_COMMAND, handler);
+    };
+  },
+
+  /** Subscribe to update available notifications */
+  onUpdateAvailable: (callback: (version: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, version: string): void => {
+      callback(version);
+    };
+    ipcRenderer.on(CHANNEL_UPDATE_AVAILABLE, handler);
+    return () => {
+      ipcRenderer.removeListener(CHANNEL_UPDATE_AVAILABLE, handler);
     };
   },
 };

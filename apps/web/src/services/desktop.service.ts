@@ -50,6 +50,22 @@ export async function getDesktopApiBaseUrl(): Promise<DesktopApiBaseUrl> {
 }
 
 /**
+ * Triggers native open file dialog
+ */
+export async function showDesktopOpenDialog(options?: any) {
+  if (!isDesktopRuntime()) return null;
+  return await window.atxDesktop!.showOpenDialog(options);
+}
+
+/**
+ * Triggers native save file dialog
+ */
+export async function showDesktopSaveDialog(options?: any) {
+  if (!isDesktopRuntime()) return null;
+  return await window.atxDesktop!.showSaveDialog(options);
+}
+
+/**
  * Subscribes to server status changes pushed from the main process.
  * Returns an unsubscribe function.
  * Only call when isDesktopRuntime() === true.

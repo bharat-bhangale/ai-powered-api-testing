@@ -9,6 +9,7 @@ import {
   addFolder,
   renameFolder,
   deleteFolder,
+  exportCollection,
 } from './collection.controller';
 
 const router = Router();
@@ -24,6 +25,9 @@ router.get('/', listCollections);
 
 /** GET /api/collections/:id — Get single collection with requests */
 router.get('/:id', getCollection);
+
+/** GET /api/collections/:id/export — Export collection */
+router.get('/:id/export', exportCollection);
 
 /** PATCH /api/collections/:id — Update collection */
 router.patch('/:id', updateCollection);

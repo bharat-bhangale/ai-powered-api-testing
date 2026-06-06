@@ -15,6 +15,7 @@ import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { useRequestStore } from '@/stores/requestStore';
 import { OfflineBanner } from '@/components/common/OfflineBanner/OfflineBanner';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useDesktopMenuCommands } from '@/hooks/useDesktopMenuCommands';
 import { isDesktopRuntime } from '@/services/desktop.service';
 import styles from './router.module.css';
 
@@ -82,6 +83,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
  */
 const MainApp = () => {
   useKeyboardShortcuts();
+  useDesktopMenuCommands();
   const fetchEnvironments = useEnvironmentStore((s) => s.fetchEnvironments);
   const activeTabId = useRequestStore((s) => s.activeTabId);
   const location = useLocation();

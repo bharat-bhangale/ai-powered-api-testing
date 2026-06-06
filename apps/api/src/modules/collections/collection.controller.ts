@@ -49,6 +49,18 @@ export async function getCollection(req: Request, res: Response): Promise<void> 
   }
 }
 
+/** GET /api/collections/:id/export */
+export async function exportCollection(req: Request, res: Response): Promise<void> {
+  try {
+    const id = req.params.id as string;
+    const result = await collectionService.getById(req.userId!, id);
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Collection not found';
+    res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message } });
+  }
+}
+
 /** PATCH /api/collections/:id */
 export async function updateCollection(req: Request, res: Response): Promise<void> {
   try {

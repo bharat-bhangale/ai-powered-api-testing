@@ -13,6 +13,11 @@ import { app, ipcMain } from 'electron';
 import log from 'electron-log';
 import { createMainWindow, focusMainWindow, getMainWindow } from './window';
 import { initializeKeychain } from './keychain';
+import { registerFileDialogHandlers } from './file-dialogs';
+import { setupApplicationMenu } from './menu';
+import { setupTray } from './tray';
+import { setupNotifications } from './notifications';
+import { setupUpdater } from './updater';
 import {
   startLocalServer,
   stopLocalServer,
@@ -52,6 +57,7 @@ if (!gotLock) {
 
     // Register IPC handlers before any window is created
     registerIpcHandlers();
+    registerFileDialogHandlers();
 
     // Forward every server status update to the renderer (if window is open)
     onServerStatusChange((status) => {
@@ -79,6 +85,10 @@ if (!gotLock) {
     // Create the window after the API is ready so the renderer can immediately
     // call getApiBaseUrl() and get a valid response.
     createMainWindow();
+    setupApplicationMenu();
+    setupTray();
+    setupNotifications();
+    setupUpdater();
   }).catch((err: unknown) => {
     const msg = err instanceof Error ? err.message : String(err);
     log.error('Fatal startup error:', msg);
@@ -90,6 +100,7 @@ if (!gotLock) {
   app.on('activate', () => {
     if (getMainWindow() === null) {
       createMainWindow();
+      setupApplicationMenu();
     } else {
       focusMainWindow();
     }

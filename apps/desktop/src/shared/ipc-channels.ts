@@ -42,6 +42,9 @@ export const CHANNEL_WINDOW_ACTION = 'window:action' as const;
 /** Renderer → Main: check for application updates */
 export const CHANNEL_CHECK_UPDATE = 'app:check-update' as const;
 
+/** Main → Renderer: menu command triggered */
+export const CHANNEL_MENU_COMMAND = 'app:menu-command' as const;
+
 /** Main → Renderer: an update is available */
 export const CHANNEL_UPDATE_AVAILABLE = 'update:available' as const;
 
@@ -58,4 +61,5 @@ export type IpcInvokeChannel =
 export type IpcSendChannel =
   | typeof CHANNEL_SERVER_STATUS
   | typeof CHANNEL_SERVER_READY
-  | typeof CHANNEL_UPDATE_AVAILABLE;
+  | typeof CHANNEL_UPDATE_AVAILABLE
+  | typeof CHANNEL_MENU_COMMAND;

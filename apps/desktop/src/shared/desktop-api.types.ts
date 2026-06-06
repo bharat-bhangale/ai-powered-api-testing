@@ -33,6 +33,12 @@ export interface AtxDesktopApi {
    * Returns an unsubscribe function.
    */
   onServerReady: (callback: (payload: ServerReadyPayload) => void) => () => void;
+
+  showOpenDialog: (options?: any) => Promise<{ filePath: string; content: string; fileName: string } | null>;
+  showSaveDialog: (options?: any) => Promise<string | null>;
+
+  onMenuCommand: (callback: (command: string) => void) => () => void;
+  onUpdateAvailable: (callback: (version: string) => void) => () => void;
 }
 
 /**

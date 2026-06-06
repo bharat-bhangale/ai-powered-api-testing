@@ -3,6 +3,7 @@ import { X, Upload, FileJson, Check, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/services/api';
 import { useCollectionStore } from '@/stores/collectionStore';
+import { isDesktopRuntime, showDesktopOpenDialog } from '@/services/desktop.service';
 import styles from './ImportModal.module.css';
 
 interface ImportModalProps {
@@ -71,6 +72,53 @@ export const ImportModal = ({ onClose }: ImportModalProps) => {
     }
   }, []);
 
+  const handleDesktopFileSelect = useCallback(async () => {
+    try {
+      const result = await showDesktopOpenDialog({
+        title: 'Import Postman Collection',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }],
+      });
+
+      if (!result) return; // Cancelled
+
+      const { content, fileName } = result;
+      // Mock a file object for the UI display
+      setFile(new File([content], fileName, { type: 'application/json' }));
+      setError('');
+      setPreview(null);
+
+      const json = JSON.parse(content);
+      if (!json.info || !json.item) {
+        setError('Invalid Postman collection format. Expected v2.1 JSON with "info" and "item" fields.');
+        return;
+      }
+
+      let requestCount = 0;
+      let folderCount = 0;
+
+      function countItems(items: Array<{ item?: unknown[]; request?: unknown }>): void {
+        items.forEach((item) => {
+          if (item.item && Array.isArray(item.item)) {
+            folderCount++;
+            countItems(item.item as Array<{ item?: unknown[]; request?: unknown }>);
+          } else if (item.request) {
+            requestCount++;
+          }
+        });
+      }
+
+      countItems(json.item);
+      setRawJson(json);
+      setPreview({
+        name: json.info.name || 'Unnamed Collection',
+        requestCount,
+        folderCount,
+      });
+    } catch {
+      setError('Failed to parse file. Ensure it is a valid JSON file.');
+    }
+  }, []);
+
   // Import
   const handleImport = useCallback(async () => {
     if (!rawJson) return;
@@ -106,30 +154,40 @@ export const ImportModal = ({ onClose }: ImportModalProps) => {
           {/* Drop zone / file input */}
           <div
             className={styles.dropZone}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (isDesktopRuntime()) {
+                handleDesktopFileSelect();
+              } else {
+                fileInputRef.current?.click();
+              }
+            }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDrop={(e) => {
               e.preventDefault();
               e.stopPropagation();
+              if (isDesktopRuntime()) return; // Native handles its own files
               const droppedFile = e.dataTransfer.files[0];
               if (droppedFile) handleFileSelect(droppedFile);
             }}
           >
             <FileJson size={32} className={styles.dropIcon} />
             <p className={styles.dropText}>
-              {file ? file.name : 'Click or drag a Postman Collection JSON file'}
+              {file ? file.name : (isDesktopRuntime() ? 'Click to browse Postman Collection JSON' : 'Click or drag a Postman Collection JSON file')}
             </p>
             <span className={styles.dropHint}>Supports Postman Collection v2.1</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              className={styles.fileInput}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFileSelect(f);
-              }}
-            />
+            
+            {!isDesktopRuntime() && (
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className={styles.fileInput}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFileSelect(f);
+                }}
+              />
+            )}
           </div>
 
           {/* Error */}

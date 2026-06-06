@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSettingsStore } from '../stores/settingsStore';
-import { isDesktopRuntime } from '../services/desktop.service';
+import { isDesktopRuntime, showDesktopSaveDialog, showDesktopOpenDialog } from '../services/desktop.service';
+import { apiClient } from '../services/api';
+import { toast } from 'sonner';
 import styles from './SettingsPage.module.css';
 
 export const SettingsPage: React.FC = () => {
@@ -14,6 +16,9 @@ export const SettingsPage: React.FC = () => {
   
   // Local state for settings
   const [aiApiKey, setAiApiKey] = useState('');
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     fetchSettings();
@@ -36,6 +41,76 @@ export const SettingsPage: React.FC = () => {
     setNewSecretScope('');
     setNewSecretLabel('');
     setNewSecretValue('');
+  };
+
+  const handleBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      if (isDesktopRuntime()) {
+        const result = await showDesktopSaveDialog({
+          title: 'Export ATX Backup',
+          defaultPath: `ATX_Backup_${new Date().toISOString().split('T')[0]}.json`,
+          filters: [{ name: 'JSON Backup', extensions: ['json'] }]
+        });
+
+        if (result) {
+          await apiClient.post('/api/backups/export', { targetPath: result });
+          toast.success('Backup exported successfully');
+        }
+      } else {
+        const res = await apiClient.post('/api/backups/export', {});
+        const content = JSON.stringify(res.data.data, null, 2);
+        const blob = new Blob([content], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ATX_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Backup downloaded successfully');
+      }
+    } catch (err) {
+      toast.error('Backup failed');
+      console.error(err);
+    }
+    setIsBackingUp(false);
+  };
+
+  const handleRestoreFile = async (fileOrContent: string | File) => {
+    setIsRestoring(true);
+    try {
+      let content = '';
+      if (typeof fileOrContent === 'string') {
+        content = fileOrContent;
+      } else {
+        content = await fileOrContent.text();
+      }
+
+      const manifest = JSON.parse(content);
+      await apiClient.post('/api/backups/import', { manifest });
+      toast.success('Restore completed successfully. Reloading...');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      toast.error('Restore failed');
+      console.error(err);
+    }
+    setIsRestoring(false);
+  };
+
+  const handleRestoreClick = async () => {
+    if (isDesktopRuntime()) {
+      const result = await showDesktopOpenDialog({
+        title: 'Select ATX Backup File',
+        filters: [{ name: 'JSON Backup', extensions: ['json'] }]
+      });
+      if (result) {
+        await handleRestoreFile(result.content);
+      }
+    } else {
+      fileInputRef.current?.click();
+    }
   };
 
   return (
@@ -78,8 +153,41 @@ export const SettingsPage: React.FC = () => {
               {activeTab === 'general' && (
                 <div className={styles.section}>
                   <h2>General Settings</h2>
-                  <p>Configure general application behavior.</p>
-                  {/* General settings can go here */}
+                  <p>Configure general application behavior and manage your data.</p>
+                  
+                  <div className={styles.dataSection}>
+                    <h3>Backup & Restore</h3>
+                    <p className={styles.helpText}>
+                      Create a full backup of all your collections, environments, requests, and settings. 
+                      Secrets are securely redacted from backups.
+                    </p>
+                    <div className={styles.actionButtons}>
+                      <button 
+                        className={styles.primaryBtn} 
+                        onClick={handleBackup}
+                        disabled={isBackingUp}
+                      >
+                        {isBackingUp ? 'Exporting...' : 'Export Backup'}
+                      </button>
+                      <button 
+                        className={styles.secondaryBtn} 
+                        onClick={handleRestoreClick}
+                        disabled={isRestoring}
+                      >
+                        {isRestoring ? 'Restoring...' : 'Restore from Backup'}
+                      </button>
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        accept=".json"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleRestoreFile(f);
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 

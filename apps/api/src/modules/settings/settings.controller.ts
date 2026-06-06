@@ -6,7 +6,7 @@ const settingsService = new SettingsService();
 
 export const getSetting = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const key = req.params.key;
+    const key = req.params.key as string;
     if (!key) return res.status(400).json({ error: 'Key is required' });
 
     const value = await settingsService.getSetting(key);
@@ -18,7 +18,7 @@ export const getSetting = async (req: Request, res: Response, next: NextFunction
 
 export const setSetting = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const key = req.params.key;
+    const key = req.params.key as string;
     if (!key) return res.status(400).json({ error: 'Key is required' });
 
     const { value } = SetSettingSchema.parse(req.body);
