@@ -14,14 +14,22 @@ import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { useRequestStore } from '@/stores/requestStore';
 import { OfflineBanner } from '@/components/common/OfflineBanner/OfflineBanner';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { isDesktopRuntime } from '@/services/desktop.service';
 import styles from './router.module.css';
 
 /**
- * Protected route wrapper — redirects to /login if not authenticated.
+ * Protected route wrapper.
+ * - Desktop mode: always renders children (no login wall).
+ * - Web mode: redirects to /login if not authenticated.
  */
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+
+  // Desktop: no auth wall — render immediately
+  if (isDesktopRuntime()) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
@@ -40,11 +48,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 /**
- * Public route wrapper — redirects to / if already authenticated.
+ * Public route wrapper.
+ * - Desktop mode: never redirects away (no auth wall).
+ * - Web mode: redirects to / if already authenticated.
  */
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+
+  // Desktop: no auth concept — always render the public content
+  if (isDesktopRuntime()) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
@@ -101,15 +116,18 @@ const MainApp = () => {
 /**
  * Application router.
  * - /login and /register are public
- * - / is protected (requires auth)
- * - Runs checkAuth on mount to verify session
+ * - / is protected (requires auth in web; always accessible in desktop)
+ * - Runs checkAuth on mount in web mode only
  */
 export const AppRouter = () => {
   const checkAuth = useAuthStore((s) => s.checkAuth);
   const location = useLocation();
 
   useEffect(() => {
-    checkAuth();
+    // In desktop mode there is no JWT-based auth session to check
+    if (!isDesktopRuntime()) {
+      checkAuth();
+    }
   }, [checkAuth]);
 
   return (
