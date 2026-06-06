@@ -18,6 +18,8 @@ import { setupApplicationMenu } from './menu';
 import { setupTray } from './tray';
 import { setupNotifications } from './notifications';
 import { setupUpdater } from './updater';
+import { registerProxyHandlers } from './proxy';
+import { registerCertificateHandlers } from './certificates';
 import {
   startLocalServer,
   stopLocalServer,
@@ -58,6 +60,8 @@ if (!gotLock) {
     // Register IPC handlers before any window is created
     registerIpcHandlers();
     registerFileDialogHandlers();
+    registerProxyHandlers();
+    registerCertificateHandlers();
 
     // Forward every server status update to the renderer (if window is open)
     onServerStatusChange((status) => {

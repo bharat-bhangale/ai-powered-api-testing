@@ -6,6 +6,8 @@ import { buildAtxGlobal } from '../test-runner/atx-api';
 import { VariableResolver } from './variable-resolver';
 import { dbProvider } from '../../data/database-provider';
 import crypto from 'crypto';
+import { getProxyConfig } from './proxy-config';
+import { getCertificateAgent } from './certificate-config';
 
 /**
  * Parameters for executing an HTTP request.
@@ -134,6 +136,10 @@ export class ExecutorService {
       // SSRF protection: validate the target URL before making the request
       await validateUrl(finalUrl);
 
+      // Get proxy and certificate agents
+      const proxyAgent = await getProxyConfig();
+      const httpsAgent = params.userId ? await getCertificateAgent(params.userId) : null;
+
       // Build axios config
       const config: AxiosRequestConfig = {
         method: params.method.toLowerCase() as AxiosRequestConfig['method'],
@@ -145,6 +151,9 @@ export class ExecutorService {
         validateStatus: () => true, // Never throw on any status code
         maxRedirects: 5,
         transformResponse: [(data: string) => data], // Don't auto-parse
+        proxy: proxyAgent ? false : undefined, // Disable default proxy if using agent
+        httpsAgent: proxyAgent || httpsAgent || undefined,
+        httpAgent: proxyAgent || undefined,
       };
 
       const response: AxiosResponse<string> = await axios(config);

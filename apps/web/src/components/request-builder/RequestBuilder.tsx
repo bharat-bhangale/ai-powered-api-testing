@@ -11,6 +11,7 @@ import { RequestTabs } from './RequestTabs';
 import { UrlBar } from './UrlBar';
 import { RequestPanel } from './RequestPanel';
 import { SaveModal } from './SaveModal';
+import { CodeGenerationModal } from './CodeGenerationModal';
 import { ResponseViewer } from '@/components/response-viewer/ResponseViewer';
 import { TestResultsPanel } from '@/components/test-runner/TestResultsPanel';
 import { useAutoTest } from '@/hooks/useAutoTest';
@@ -41,6 +42,7 @@ export const RequestBuilder = () => {
 
   const { fetchCollections } = useCollectionStore();
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showCodeGenModal, setShowCodeGenModal] = useState(false);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -198,6 +200,14 @@ export const RequestBuilder = () => {
             >
               <Copy size={15} />
             </button>
+            <button
+              className={styles.saveButton}
+              onClick={() => setShowCodeGenModal(true)}
+              title="Generate Code"
+              type="button"
+            >
+              <span>{'</>'}</span>
+            </button>
           </div>
 
           {/* Request Panel (Params, Headers, Body, Auth, Tests) */}
@@ -228,6 +238,21 @@ export const RequestBuilder = () => {
       {/* Save Modal */}
       {showSaveModal && (
         <SaveModal onClose={() => setShowSaveModal(false)} />
+      )}
+
+      {/* Code Gen Modal */}
+      {showCodeGenModal && (
+        <CodeGenerationModal 
+          request={{
+            method: activeTab.method,
+            url: activeTab.url,
+            headers: activeTab.headers,
+            params: activeTab.params,
+            body: activeTab.body,
+            auth: activeTab.auth
+          }}
+          onClose={() => setShowCodeGenModal(false)} 
+        />
       )}
     </div>
   );
