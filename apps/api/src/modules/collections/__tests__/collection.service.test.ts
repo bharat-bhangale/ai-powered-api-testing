@@ -61,8 +61,8 @@ describe('CollectionService', () => {
       vi.mocked(dbProvider.folders.listByCollection).mockResolvedValue([]);
 
       const result = await collectionService.list('user-1');
-      expect(result[0]._id).toBe('col-1');
-      expect(result[0].folders).toEqual([]);
+      expect(result[0]!._id).toBe('col-1');
+      expect(result[0]!.folders).toEqual([]);
       expect(dbProvider.collections.listByUser).toHaveBeenCalledWith('user-1');
     });
   });
@@ -76,8 +76,8 @@ describe('CollectionService', () => {
       const result = await collectionService.getById('user-1', 'col-1');
 
       expect(result!.collection._id).toBe('col-1');
-      expect(result!.collection.folders[0]._id).toBe('folder-1');
-      expect(result!.requests[0]._id).toBe('req-1');
+      expect(result!.collection.folders[0]!._id).toBe('folder-1');
+      expect(result!.requests[0]!._id).toBe('req-1');
     });
 
     it('should throw if collection not found', async () => {
