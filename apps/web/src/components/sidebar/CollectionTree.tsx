@@ -8,6 +8,8 @@ import {
 import { useCollectionStore } from '@/stores/collectionStore';
 import { useRequestStore } from '@/stores/requestStore';
 import { apiClient } from '@/services/api';
+import { isDesktopRuntime, showDesktopSaveDialog } from '@/services/desktop.service';
+import { generateCurl } from '@/utils/curl-generator';
 import {
   ContextMenu,
   COLLECTION_MENU_ITEMS,
@@ -113,6 +115,79 @@ export const CollectionTree = () => {
           }
           break;
         }
+
+        case 'export':
+          if (type === 'collection') {
+            try {
+              const res = await apiClient.get(`/api/collections/${targetId}/export`);
+              const content = JSON.stringify(res.data.data, null, 2);
+              
+              if (isDesktopRuntime()) {
+                await showDesktopSaveDialog({
+                  title: 'Export Collection',
+                  defaultPath: `ATX_Collection_${targetId}.json`,
+                  filters: [{ name: 'JSON Files', extensions: ['json'] }],
+                  content,
+                });
+              } else {
+                // Web fallback
+                const blob = new Blob([content], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ATX_Collection_${targetId}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }
+            } catch (err) {
+              console.error('Export collection failed:', err);
+            }
+          } else if (type === 'request') {
+            try {
+              // Export as cURL
+              const reqToExport = collectionId
+                ? collections.find((c) => c._id === collectionId)?.requests.find((r) => r._id === targetId)
+                : null;
+                
+              if (reqToExport) {
+                // Note: we might not have all headers if they're not fetched in the sidebar payload.
+                // We'll generate a basic cURL for what we have.
+                const curlCmd = generateCurl({
+                  method: reqToExport.method,
+                  url: reqToExport.url,
+                  headers: [], // Fallback since sidebar might not have headers
+                  params: [],
+                  body: { mode: 'none', content: '' },
+                  auth: { type: 'none' },
+                });
+                
+                if (isDesktopRuntime()) {
+                  await showDesktopSaveDialog({
+                    title: 'Export cURL',
+                    defaultPath: `request_${targetId}.sh`,
+                    filters: [{ name: 'Shell Script', extensions: ['sh', 'txt'] }],
+                    content: curlCmd,
+                  });
+                } else {
+                  // Web fallback
+                  const blob = new Blob([curlCmd], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `request_${targetId}.sh`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }
+              }
+            } catch (err) {
+              console.error('Export cURL failed:', err);
+            }
+          }
+          break;
       }
     },
     [contextMenu, collections, deleteCollection, addFolder, fetchCollections],

@@ -68,7 +68,7 @@ export class ScheduleWorker {
           await this.executeSchedule(schedule);
         } catch (err) {
           console.error(
-            `Schedule ${schedule._id} failed:`,
+            `Schedule ${schedule.id} failed:`,
             err instanceof Error ? err.message : err,
           );
         }
@@ -82,20 +82,18 @@ export class ScheduleWorker {
    * Execute a single scheduled test run.
    */
   private async executeSchedule(schedule: {
-    _id: unknown;
-    userId: unknown;
-    collectionId: unknown;
-    environmentId?: unknown;
+    id: string;
+    userId: string;
+    collectionId: string;
+    environmentId?: string;
     cronExpression: string;
     webhookUrl?: string;
     notifyEmail?: string;
     collectionName: string;
   }): Promise<void> {
-    const userId = String(schedule.userId);
-    const collectionId = String(schedule.collectionId);
-    const environmentId = schedule.environmentId
-      ? String(schedule.environmentId)
-      : undefined;
+    const userId = schedule.userId;
+    const collectionId = schedule.collectionId;
+    const environmentId = schedule.environmentId;
 
     let runId = '';
     let finalStatus: 'completed' | 'failed' = 'completed';
@@ -120,14 +118,15 @@ export class ScheduleWorker {
 
     // Mark schedule as run
     await this.scheduleService.markRun(
-      String(schedule._id),
+      userId,
+      schedule.id,
       runId,
       finalStatus,
       schedule.cronExpression,
     );
 
     console.log(
-      `⏰ Schedule ${schedule._id} (${schedule.collectionName}): ${finalStatus} — ${totalPassed} passed, ${totalFailed} failed`,
+      `⏰ Schedule ${schedule.id} (${schedule.collectionName}): ${finalStatus} — ${totalPassed} passed, ${totalFailed} failed`,
     );
 
     // Send failure notifications

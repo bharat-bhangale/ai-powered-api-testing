@@ -52,6 +52,11 @@ import schemaValidatorRoutes from './modules/schema-validator/schema-validator.r
 import environmentMatrixRoutes from './modules/environment-matrix/environment-matrix.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import testTrendRoutes from './modules/test-runs/test-trend.routes';
+import settingsRouter from './modules/settings/settings.routes';
+import secretsRouter from './modules/secrets/secrets.routes';
+import backupsRouter from './modules/backups/backups.routes';
+import certificatesRouter from './modules/certificates/certificates.routes';
+import codeGenRouter from './modules/code-gen/code-gen.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -68,6 +73,11 @@ app.use('/api/schema-validator', schemaValidatorRoutes);
 app.use('/api/environment-matrix', environmentMatrixRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/test-runs', testTrendRoutes);
+app.use('/api/settings', settingsRouter);
+app.use('/api/secrets', secretsRouter);
+app.use('/api/backups', backupsRouter);
+app.use('/api/certificates', certificatesRouter);
+app.use('/api/code-gen', codeGenRouter);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {

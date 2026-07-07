@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
+import { isDesktopMode } from '../config/runtime';
+import { LOCAL_USER_ID } from '../modules/auth/desktop-auth.service';
 
 /**
  * Extend Express Request with userId (set by authenticate middleware).
@@ -14,11 +16,28 @@ declare global {
 }
 
 /**
- * JWT authentication middleware.
- * Reads the access token from the Authorization header.
- * Sets req.userId on success, returns 401 on failure.
+ * Authentication middleware.
+ *
+ * Desktop mode:
+ *   - Skips JWT verification entirely.
+ *   - Injects LOCAL_USER_ID ('local-user') as req.userId.
+ *   - Every protected route proceeds without credentials.
+ *
+ * Web mode (unchanged):
+ *   - Reads the Bearer token from the Authorization header.
+ *   - Verifies with ACCESS_TOKEN_SECRET.
+ *   - Returns 401 on missing, malformed, or invalid tokens.
  */
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
+  // ===== Desktop mode: inject synthetic local user, skip JWT =====
+  if (isDesktopMode) {
+    req.userId = LOCAL_USER_ID;
+    next();
+    return;
+  }
+
+  // ===== Web mode: standard JWT verification =====
+
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

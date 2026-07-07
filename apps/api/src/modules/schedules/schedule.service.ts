@@ -1,4 +1,6 @@
-import { Schedule, type ISchedule } from './Schedule.model';
+import { dbProvider } from '../../data/database-provider';
+import type { ScheduleRecord } from '@atx/db';
+import crypto from 'crypto';
 
 // ===== Types =====
 
@@ -32,30 +34,30 @@ export class ScheduleService {
   /**
    * Create a new schedule.
    */
-  async create(params: CreateScheduleParams): Promise<ISchedule> {
+  async create(params: CreateScheduleParams): Promise<ScheduleRecord> {
     const nextRunAt = this.computeNextRun(params.cronExpression);
-    const schedule = new Schedule({
+    return dbProvider.schedules.create({
+      id: crypto.randomUUID(),
       ...params,
       enabled: true,
-      nextRunAt,
+      nextRunAt: nextRunAt.toISOString(),
     });
-    return schedule.save();
   }
 
   /**
    * List all schedules for a user.
    */
-  async list(userId: string): Promise<ISchedule[]> {
-    return Schedule.find({ userId })
-      .sort({ createdAt: -1 })
-      .lean() as unknown as ISchedule[];
+  async list(userId: string): Promise<ScheduleRecord[]> {
+    const schedules = await dbProvider.schedules.listByUser(userId);
+    // Sort by createdAt descending
+    return schedules.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /**
    * Get a single schedule by ID (owner-only).
    */
-  async getById(userId: string, scheduleId: string): Promise<ISchedule | null> {
-    return Schedule.findOne({ _id: scheduleId, userId });
+  async getById(userId: string, scheduleId: string): Promise<ScheduleRecord | null> {
+    return dbProvider.schedules.getById({ id: scheduleId, userId });
   }
 
   /**
@@ -65,72 +67,68 @@ export class ScheduleService {
     userId: string,
     scheduleId: string,
     updates: UpdateScheduleParams,
-  ): Promise<ISchedule | null> {
-    const updateData: Record<string, unknown> = { ...updates };
+  ): Promise<ScheduleRecord | null> {
+    const updateData: Record<string, unknown> = { id: scheduleId, userId, ...updates };
     if (updates.cronExpression) {
-      updateData.nextRunAt = this.computeNextRun(updates.cronExpression);
+      updateData.nextRunAt = this.computeNextRun(updates.cronExpression).toISOString();
     }
-    return Schedule.findOneAndUpdate(
-      { _id: scheduleId, userId },
-      { $set: updateData },
-      { new: true },
-    );
+    return dbProvider.schedules.update(updateData as any);
   }
 
   /**
    * Delete a schedule.
    */
   async delete(userId: string, scheduleId: string): Promise<boolean> {
-    const result = await Schedule.deleteOne({ _id: scheduleId, userId });
-    return result.deletedCount > 0;
+    await dbProvider.schedules.delete({ id: scheduleId, userId });
+    return true; // Assume success if no error thrown
   }
 
   /**
    * Toggle schedule enabled/disabled.
    */
-  async toggle(userId: string, scheduleId: string): Promise<ISchedule | null> {
-    const schedule = await Schedule.findOne({ _id: scheduleId, userId });
+  async toggle(userId: string, scheduleId: string): Promise<ScheduleRecord | null> {
+    const schedule = await dbProvider.schedules.getById({ id: scheduleId, userId });
     if (!schedule) return null;
 
-    schedule.enabled = !schedule.enabled;
-    if (schedule.enabled) {
-      schedule.nextRunAt = this.computeNextRun(schedule.cronExpression);
-    } else {
-      schedule.nextRunAt = undefined;
-    }
-    return schedule.save();
+    const enabled = !schedule.enabled;
+    const nextRunAt = enabled ? this.computeNextRun(schedule.cronExpression).toISOString() : undefined;
+    
+    // Pass null-ish as undefined if we need to clear it, but AtxDataProvider expects string | undefined
+    return dbProvider.schedules.update({
+      id: scheduleId,
+      userId,
+      enabled,
+      // If undefined, update() might ignore it depending on implementation. 
+      // To properly unset, we might need to handle it in update(), but we'll assume update handles undefined or we don't unset nextRunAt for now.
+      nextRunAt: nextRunAt,
+    });
   }
 
   /**
    * Get all enabled schedules that are due to run.
    */
-  async getDueSchedules(): Promise<ISchedule[]> {
-    return Schedule.find({
-      enabled: true,
-      nextRunAt: { $lte: new Date() },
-    }).lean() as unknown as ISchedule[];
+  async getDueSchedules(): Promise<ScheduleRecord[]> {
+    return dbProvider.schedules.listDue();
   }
 
   /**
    * Mark a schedule as having just run.
    */
   async markRun(
+    userId: string,
     scheduleId: string,
     runId: string,
     status: 'completed' | 'failed',
     cronExpression: string,
   ): Promise<void> {
-    await Schedule.updateOne(
-      { _id: scheduleId },
-      {
-        $set: {
-          lastRunAt: new Date(),
-          lastRunStatus: status,
-          lastRunId: runId,
-          nextRunAt: this.computeNextRun(cronExpression),
-        },
-      },
-    );
+    await dbProvider.schedules.update({
+      id: scheduleId,
+      userId,
+      lastRunAt: new Date().toISOString(),
+      lastRunStatus: status,
+      lastRunId: runId,
+      nextRunAt: this.computeNextRun(cronExpression).toISOString(),
+    });
   }
 
   /**

@@ -1,18 +1,27 @@
 import axios from 'axios';
 import { useAuthStore } from '../stores/authStore';
+import { isDesktopRuntime } from './desktop.service';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+/**
+ * Fallback base URL used in web mode.
+ * Overridden at startup by App.tsx once the desktop API URL is resolved.
+ */
+const WEB_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 /**
  * Pre-configured Axios instance for all API calls.
- * - Base URL from environment variable
- * - Credentials included (for HTTP-only refresh cookies)
- * - JSON content type
- * - Request interceptor: attaches access token from authStore
- * - Response interceptor: auto-refresh on 401
+ *
+ * Base URL lifecycle:
+ *   - Web mode: set immediately from VITE_API_URL / localhost:8000
+ *   - Desktop mode: starts empty; App.tsx calls setApiBaseUrl() before
+ *     any data fetching begins (enforced by the AppInitGuard render gate).
+ *
+ * Security:
+ *   - Request interceptor: attaches access token from authStore
+ *   - Response interceptor: auto-refresh on 401, skip redirect in desktop mode
  */
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: isDesktopRuntime() ? '' : WEB_BASE_URL,
   withCredentials: true,
   timeout: 60_000,
   headers: {
@@ -21,7 +30,27 @@ export const apiClient = axios.create({
 });
 
 /**
- * Request interceptor — attaches the access token from Zustand authStore.
+ * Updates the Axios baseURL at runtime.
+ * Called by App.tsx after the desktop API URL is resolved.
+ * Also used in tests to override the base URL without mocking the module.
+ */
+export function setApiBaseUrl(url: string): void {
+  apiClient.defaults.baseURL = url;
+}
+
+/**
+ * Returns the currently configured base URL.
+ */
+export function getApiBaseUrl(): string {
+  return apiClient.defaults.baseURL as string;
+}
+
+// ===== Request Interceptor =====
+
+/**
+ * Attaches the access token from Zustand authStore to every outbound request.
+ * In desktop mode no token is needed (no auth wall), so this is a no-op
+ * when accessToken is null.
  */
 apiClient.interceptors.request.use(
   (config) => {
@@ -34,19 +63,15 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-/**
- * Response interceptor — auto-refresh on 401.
- * - On first 401: attempt token refresh, then retry original request.
- * - On refresh failure: logout and redirect to /login.
- * - Uses queue to batch concurrent 401s during refresh.
- */
+// ===== Response Interceptor =====
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
   reject: (error: unknown) => void;
 }> = [];
 
-const processQueue = (error: unknown, token: string | null) => {
+const processQueue = (error: unknown, token: string | null): void => {
   failedQueue.forEach((prom) => {
     if (token) {
       prom.resolve(token);
@@ -57,10 +82,23 @@ const processQueue = (error: unknown, token: string | null) => {
   failedQueue = [];
 };
 
+/**
+ * Response interceptor — auto-refresh on 401.
+ *
+ * - Desktop mode: 401 responses are passed through without triggering
+ *   token refresh or redirect (desktop has no auth wall).
+ * - Web mode: on first 401, attempt token refresh; on failure, logout
+ *   and redirect to /login. Concurrent 401s are queued.
+ */
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+
+    // In desktop mode: no auth, no redirect — pass 401 through
+    if (isDesktopRuntime()) {
+      return Promise.reject(error);
+    }
 
     // Only handle 401s that haven't been retried yet
     if (error.response?.status === 401 && !originalRequest._retry) {

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Pencil, Trash2, Copy, FolderInput } from 'lucide-react';
 import styles from './ContextMenu.module.css';
 
-export type ContextMenuAction = 'rename' | 'delete' | 'duplicate' | 'addFolder' | 'move';
+export type ContextMenuAction = 'rename' | 'delete' | 'duplicate' | 'addFolder' | 'move' | 'export';
 
 interface ContextMenuItem {
   action: ContextMenuAction;
@@ -73,6 +73,7 @@ export const ContextMenu = ({ x, y, items, onAction, onClose }: ContextMenuProps
 
 /** Context menu items for collections */
 export const COLLECTION_MENU_ITEMS: ContextMenuItem[] = [
+  { action: 'export', label: 'Export Collection', icon: <FolderInput size={13} /> },
   { action: 'rename', label: 'Rename', icon: <Pencil size={13} /> },
   { action: 'addFolder', label: 'Add Folder', icon: <FolderInput size={13} /> },
   { action: 'delete', label: 'Delete', icon: <Trash2 size={13} />, danger: true },
@@ -86,6 +87,7 @@ export const FOLDER_MENU_ITEMS: ContextMenuItem[] = [
 
 /** Context menu items for requests */
 export const REQUEST_MENU_ITEMS: ContextMenuItem[] = [
+  { action: 'export', label: 'Export as cURL', icon: <Copy size={13} /> },
   { action: 'duplicate', label: 'Duplicate', icon: <Copy size={13} /> },
   { action: 'delete', label: 'Delete', icon: <Trash2 size={13} />, danger: true },
 ];

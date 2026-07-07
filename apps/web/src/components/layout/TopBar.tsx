@@ -1,4 +1,5 @@
-import { Zap, Moon, Sun, Monitor, Sparkles } from 'lucide-react';
+import { Zap, Moon, Sun, Monitor, Sparkles, Settings } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '@/hooks/useTheme';
 import { useAIStore } from '@/stores/aiStore';
 import styles from './TopBar.module.css';
@@ -10,6 +11,8 @@ export const TopBar = () => {
   const { theme, setTheme } = useTheme();
   const togglePanel = useAIStore((s) => s.togglePanel);
   const isPanelOpen = useAIStore((s) => s.isPanelOpen);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const cycleTheme = () => {
     const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
@@ -39,6 +42,14 @@ export const TopBar = () => {
           type="button"
         >
           <Sparkles size={15} />
+        </button>
+        <button
+          className={`${styles.themeButton} ${location.pathname === '/settings' ? styles.active : ''}`}
+          onClick={() => navigate('/settings')}
+          title="Settings"
+          type="button"
+        >
+          <Settings size={16} />
         </button>
         <button
           className={styles.themeButton}

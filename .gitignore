@@ -29,3 +29,6 @@ coverage/
 
 # Turborepo (optional)
 .turbo/
+
+# Electron
+release/

@@ -1,4 +1,6 @@
-import { TestRun, type ITestRun } from './TestRun.model';
+import { dbProvider } from '../../data/database-provider';
+import type { TestRunRecord } from '@atx/db';
+import type { IRequestRunResult } from './TestRun.model';
 
 // ===== Types =====
 
@@ -81,16 +83,12 @@ export class TestTrendService {
    * Full trend analysis for a user.
    */
   async analyze(userId: string, collectionId?: string): Promise<TrendAnalysis> {
-    const query: Record<string, unknown> = {
-      userId,
-      status: { $in: ['completed', 'failed'] },
-    };
-    if (collectionId) query.collectionId = collectionId;
-
-    const runs = await TestRun.find(query)
-      .sort({ createdAt: -1 })
-      .limit(MAX_RUNS_ANALYZED)
-      .lean() as unknown as ITestRun[];
+    const allRuns = await dbProvider.testRuns.listByUser({ userId, limit: 500 });
+    let runs = allRuns.filter(r => r.status === 'completed' || r.status === 'failed');
+    if (collectionId) {
+      runs = runs.filter(r => r.collectionId === collectionId);
+    }
+    runs = runs.slice(0, MAX_RUNS_ANALYZED);
 
     const history = runs.map((r) => this.toHistoryEntry(r));
     const trend = this.buildTrend(runs);
@@ -110,17 +108,14 @@ export class TestTrendService {
     page = 1,
     limit = 20,
   ): Promise<{ runs: RunHistoryEntry[]; total: number }> {
-    const query: Record<string, unknown> = { userId };
-    if (collectionId) query.collectionId = collectionId;
+    const allRuns = await dbProvider.testRuns.listByUser({ userId, limit: 1000 });
+    let runs = allRuns;
+    if (collectionId) {
+      runs = runs.filter(r => r.collectionId === collectionId);
+    }
 
-    const [runs, total] = await Promise.all([
-      TestRun.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean() as unknown as Promise<ITestRun[]>,
-      TestRun.countDocuments(query),
-    ]);
+    const total = runs.length;
+    runs = runs.slice((page - 1) * limit, page * limit);
 
     return {
       runs: runs.map((r) => this.toHistoryEntry(r)),
@@ -130,24 +125,24 @@ export class TestTrendService {
 
   // ===== Private Methods =====
 
-  private toHistoryEntry(run: ITestRun): RunHistoryEntry {
+  private toHistoryEntry(run: TestRunRecord): RunHistoryEntry {
     return {
-      id: String(run._id),
+      id: run.id,
       collectionName: run.collectionName,
       trigger: run.trigger,
       status: run.status,
-      totalPassed: run.summary?.totalTestsPassed || 0,
-      totalFailed: run.summary?.totalTestsFailed || 0,
-      totalDuration: run.summary?.totalDuration || 0,
-      startedAt: new Date(run.startedAt).toISOString(),
-      completedAt: run.completedAt ? new Date(run.completedAt).toISOString() : null,
+      totalPassed: run.totalTestsPassed || 0,
+      totalFailed: run.totalTestsFailed || 0,
+      totalDuration: run.totalDuration || 0,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt || null,
     };
   }
 
   /**
    * Build daily trend data from runs.
    */
-  private buildTrend(runs: ITestRun[]): TestTrendPoint[] {
+  private buildTrend(runs: TestRunRecord[]): TestTrendPoint[] {
     if (runs.length === 0) return [];
 
     const dayMap = new Map<string, {
@@ -161,9 +156,9 @@ export class TestTrendService {
       const date = new Date(run.createdAt).toISOString().split('T')[0]!;
       const existing = dayMap.get(date) || { totalRuns: 0, passed: 0, failed: 0, durations: [] };
       existing.totalRuns += 1;
-      existing.passed += run.summary?.totalTestsPassed || 0;
-      existing.failed += run.summary?.totalTestsFailed || 0;
-      existing.durations.push(run.summary?.totalDuration || 0);
+      existing.passed += run.totalTestsPassed || 0;
+      existing.failed += run.totalTestsFailed || 0;
+      existing.durations.push(run.totalDuration || 0);
       dayMap.set(date, existing);
     }
 
@@ -187,7 +182,7 @@ export class TestTrendService {
   /**
    * Detect flaky tests — tests that alternate between pass/fail.
    */
-  private detectFlakyTests(runs: ITestRun[]): FlakyTest[] {
+  private detectFlakyTests(runs: TestRunRecord[]): FlakyTest[] {
     // Build per-test history: testKey => [passed, failed, passed, ...]
     const testHistory = new Map<string, {
       requestName: string;
@@ -201,7 +196,7 @@ export class TestTrendService {
     const chronological = [...runs].reverse();
 
     for (const run of chronological) {
-      for (const result of run.results || []) {
+      for (const result of (run.results as IRequestRunResult[]) || []) {
         for (const test of result.testResults || []) {
           const key = `${result.requestName}::${test.name}`;
           const existing = testHistory.get(key) || {
@@ -254,7 +249,7 @@ export class TestTrendService {
   /**
    * Detect regressions — tests that were passing for N days then suddenly fail.
    */
-  private detectRegressions(runs: ITestRun[]): RegressionAlert[] {
+  private detectRegressions(runs: TestRunRecord[]): RegressionAlert[] {
     const testHistory = new Map<string, {
       requestName: string;
       method: string;
@@ -267,7 +262,7 @@ export class TestTrendService {
 
     for (const run of chronological) {
       const dateStr = new Date(run.createdAt).toISOString();
-      for (const result of run.results || []) {
+      for (const result of (run.results as IRequestRunResult[]) || []) {
         for (const test of result.testResults || []) {
           const key = `${result.requestName}::${test.name}`;
           const existing = testHistory.get(key) || {
@@ -327,7 +322,7 @@ export class TestTrendService {
   /**
    * Detect performance degradation — response times increased >50% from baseline.
    */
-  private detectPerformanceDegradation(runs: ITestRun[]): PerformanceDegradation[] {
+  private detectPerformanceDegradation(runs: TestRunRecord[]): PerformanceDegradation[] {
     const endpointTimings = new Map<string, {
       requestName: string;
       method: string;
@@ -340,7 +335,7 @@ export class TestTrendService {
 
     for (const run of chronological) {
       const dateStr = new Date(run.createdAt).toISOString();
-      for (const result of run.results || []) {
+      for (const result of (run.results as IRequestRunResult[]) || []) {
         const key = `${result.method} ${result.url}`;
         const existing = endpointTimings.get(key) || {
           requestName: result.requestName,

@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { registerSchema, loginSchema } from '../../utils/validation';
+import { isDesktopMode } from '../../config/runtime';
+import { getLocalUser } from './desktop-auth.service';
 
 const authService = new AuthService();
 
@@ -131,6 +133,17 @@ export async function logout(_req: Request, res: Response): Promise<void> {
  * GET /api/auth/me
  */
 export async function getMe(req: Request, res: Response): Promise<void> {
+  // Desktop mode: return the synthetic local user without hitting the database.
+  if (isDesktopMode) {
+    const localUser = await getLocalUser();
+    res.json({
+      success: true,
+      data: { user: localUser },
+    });
+    return;
+  }
+
+  // Web mode: look up the real user in MongoDB.
   try {
     const userId = (req as Request & { userId: string }).userId;
     const user = await authService.getMe(userId);

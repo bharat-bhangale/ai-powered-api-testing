@@ -6,6 +6,8 @@ import { TestRunnerService } from '../test-runner/test-runner.service';
 import { TestRunService } from '../test-runs/test-run.service';
 import type { IRequestRunResult, ITestResult } from '../test-runs/TestRun.model';
 import { Environment } from '../../models/Environment.model';
+import type { TestRunRecord } from '@atx/db';
+import type { RequestRecord } from '@atx/db';
 import { ChainResolver, type ChainContextData } from './chain-resolver';
 
 // ===== Types =====
@@ -68,17 +70,16 @@ export class CollectionRunnerService {
    */
   async *run(options: RunOptions): AsyncGenerator<RunEvent> {
     const { userId, collectionId, environmentId, signal } = options;
+    const { dbProvider } = await import('../../data/database-provider');
 
     // 1. Load collection
-    const collection = await Collection.findOne({ _id: collectionId, userId });
+    const collection = await dbProvider.collections.getById({ id: collectionId, userId });
     if (!collection) {
       throw new Error('Collection not found');
     }
 
     // 2. Load all requests in order
-    const requests = await SavedRequest.find({ collectionId, userId })
-      .sort({ sortOrder: 1 })
-      .lean() as unknown as ISavedRequest[];
+    const requests = await dbProvider.requests.listByCollection({ collectionId, userId });
 
     if (requests.length === 0) {
       throw new Error('Collection has no requests');
@@ -87,7 +88,7 @@ export class CollectionRunnerService {
     // 3. Load environment variables
     let envVariables: Record<string, string> = {};
     if (environmentId) {
-      const env = await Environment.findOne({ _id: environmentId, userId });
+      const env = await dbProvider.environments.getById({ id: environmentId, userId });
       if (env) {
         for (const v of env.variables) {
           envVariables[v.key] = v.value;
@@ -116,11 +117,11 @@ export class CollectionRunnerService {
     for (let i = 0; i < requests.length; i++) {
       // Check abort signal
       if (signal?.aborted) {
-        await this.testRunService.complete(String(run._id), 'cancelled', requests.length);
+        await this.testRunService.complete(userId, run.id, 'cancelled', requests.length);
         yield {
           type: 'complete',
           data: {
-            runId: String(run._id),
+            runId: run.id,
             totalRequests: requests.length,
             completedRequests: completedCount,
             totalTestsPassed: totalPassed,
@@ -188,7 +189,7 @@ export class CollectionRunnerService {
 
       // Build result record
       const result: IRequestRunResult = {
-        requestId: String(request._id),
+        requestId: request.id,
         requestName: request.name,
         method: request.method,
         url: request.url,
@@ -203,7 +204,7 @@ export class CollectionRunnerService {
       };
 
       // Persist to DB
-      await this.testRunService.addResult(String(run._id), result);
+      await this.testRunService.addResult(userId, run.id, result);
 
       completedCount++;
       totalPassed += testPassed;
@@ -233,12 +234,12 @@ export class CollectionRunnerService {
 
     // 7. Mark run as completed
     const finalStatus = totalFailed > 0 ? 'failed' : 'completed';
-    await this.testRunService.complete(String(run._id), finalStatus, requests.length);
+    await this.testRunService.complete(userId, run.id, finalStatus, requests.length);
 
     yield {
       type: 'complete',
       data: {
-        runId: String(run._id),
+        runId: run.id,
         totalRequests: requests.length,
         completedRequests: completedCount,
         totalTestsPassed: totalPassed,
@@ -255,7 +256,7 @@ export class CollectionRunnerService {
    * Execute a single request with variable resolution.
    */
   private async executeRequest(
-    request: ISavedRequest,
+    request: RequestRecord,
     variables: Record<string, string>,
     chainContext: Map<string, ChainContextData>,
   ): Promise<{
@@ -289,14 +290,14 @@ export class CollectionRunnerService {
       // Resolve Env variables (chain output feeds into env resolution)
       const resolvedUrl = envResolver.resolve(chainUrl);
       
-      const requestHeaders: Array<{ key: string; value: string; enabled: boolean }> = chainHeaders.map(h => ({
+      const requestHeaders: Array<{ key: string; value: string; enabled: boolean }> = chainHeaders.map((h: { key: string, value: string, enabled: boolean }) => ({
         key: chainResolver.resolve(h.key, chainWarnings),
         value: chainResolver.resolve(h.value, chainWarnings),
         enabled: h.enabled
       }));
       const resolvedHeadersRecord = envResolver.resolveKeyValues(requestHeaders);
 
-      const requestParams: Array<{ key: string; value: string; enabled: boolean }> = chainParams.map(p => ({
+      const requestParams: Array<{ key: string; value: string; enabled: boolean }> = chainParams.map((p: { key: string, value: string, enabled: boolean }) => ({
         key: chainResolver.resolve(p.key, chainWarnings),
         value: chainResolver.resolve(p.value, chainWarnings),
         enabled: p.enabled

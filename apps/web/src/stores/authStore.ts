@@ -1,5 +1,20 @@
 import { create } from 'zustand';
 import { apiClient } from '../services/api';
+import { isDesktopRuntime } from '../services/desktop.service';
+
+// ===== Local user constant (mirrors desktop-auth.service.ts) =====
+
+/** Stable synthetic user presented to the UI in desktop mode. */
+const DESKTOP_LOCAL_USER = {
+  _id: 'local-user',
+  email: 'local@atx.desktop',
+  name: 'Local User',
+  avatar: undefined as string | undefined,
+  preferences: {
+    theme: 'dark' as const,
+    editorFontSize: 14,
+  },
+};
 
 // ===== Types =====
 
@@ -39,9 +54,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   user: null,
   accessToken: null,
   isAuthenticated: false,
-  isLoading: true,
+  /**
+   * isLoading:
+   *   - Web mode: true initially (we must verify session before rendering)
+   *   - Desktop mode: false (no session to check; local user is pre-known)
+   */
+  isLoading: !isDesktopRuntime(),
 
-  // Actions
+  // ===== Actions =====
+
   login: async (email: string, password: string) => {
     const res = await apiClient.post('/api/auth/login', { email, password });
     const { user, accessToken } = res.data.data;
@@ -78,7 +99,45 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     }
   },
 
+  /**
+   * checkAuth — verifies the current session and hydrates the auth state.
+   *
+   * Desktop mode:
+   *   - No JWT tokens or cookies exist.
+   *   - Call GET /api/auth/me which returns the local user profile directly
+   *     (authenticate middleware injects local-user without requiring a header).
+   *   - Set isAuthenticated: true immediately.
+   *
+   * Web mode (unchanged):
+   *   - Attempt token refresh using the httpOnly cookie.
+   *   - Then fetch /api/auth/me with the new access token.
+   *   - On failure: set unauthenticated.
+   */
   checkAuth: async () => {
+    if (isDesktopRuntime()) {
+      // Desktop: fetch local user profile from the already-running API
+      try {
+        const res = await apiClient.get('/api/auth/me');
+        const user: User = res.data.data.user ?? DESKTOP_LOCAL_USER;
+        set({
+          user,
+          accessToken: null,  // No JWT in desktop mode
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      } catch {
+        // API not reachable yet — use the static fallback profile
+        set({
+          user: DESKTOP_LOCAL_USER,
+          accessToken: null,
+          isAuthenticated: true,
+          isLoading: false,
+        });
+      }
+      return;
+    }
+
+    // Web mode: standard JWT session check
     try {
       // Try refreshing the token first (uses httpOnly cookie)
       await get().refreshToken();

@@ -7,6 +7,7 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { RequestBuilder } from '@/components/request-builder/RequestBuilder';
 import { CollectionRunner } from '@/components/collection-runner/CollectionRunner';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { TopBar } from '@/components/layout/TopBar';
 import { StatusBar } from '@/components/layout/StatusBar';
 import { Sidebar } from '@/components/sidebar/Sidebar';
@@ -14,14 +15,23 @@ import { AIChatPanel } from '@/components/ai/AIChatPanel';
 import { useRequestStore } from '@/stores/requestStore';
 import { OfflineBanner } from '@/components/common/OfflineBanner/OfflineBanner';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useDesktopMenuCommands } from '@/hooks/useDesktopMenuCommands';
+import { isDesktopRuntime } from '@/services/desktop.service';
 import styles from './router.module.css';
 
 /**
- * Protected route wrapper — redirects to /login if not authenticated.
+ * Protected route wrapper.
+ * - Desktop mode: always renders children (no login wall).
+ * - Web mode: redirects to /login if not authenticated.
  */
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+
+  // Desktop: no auth wall — render immediately
+  if (isDesktopRuntime()) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
@@ -40,11 +50,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 /**
- * Public route wrapper — redirects to / if already authenticated.
+ * Public route wrapper.
+ * - Desktop mode: never redirects away (no auth wall).
+ * - Web mode: redirects to / if already authenticated.
  */
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
+
+  // Desktop: no auth concept — always render the public content
+  if (isDesktopRuntime()) {
+    return <>{children}</>;
+  }
 
   if (isLoading) {
     return (
@@ -66,6 +83,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
  */
 const MainApp = () => {
   useKeyboardShortcuts();
+  useDesktopMenuCommands();
   const fetchEnvironments = useEnvironmentStore((s) => s.fetchEnvironments);
   const activeTabId = useRequestStore((s) => s.activeTabId);
   const location = useLocation();
@@ -75,6 +93,7 @@ const MainApp = () => {
   }, [fetchEnvironments]);
 
   const isDashboard = location.pathname === '/dashboard';
+  const isSettings = location.pathname === '/settings';
 
   return (
     <div className={styles.appLayout}>
@@ -83,7 +102,9 @@ const MainApp = () => {
       <div className={styles.mainContent}>
         <Sidebar />
         <main className={styles.workArea}>
-          {isDashboard ? (
+          {isSettings ? (
+            <SettingsPage />
+          ) : isDashboard ? (
             <DashboardPage />
           ) : activeTabId ? (
             <RequestBuilder />
@@ -101,14 +122,17 @@ const MainApp = () => {
 /**
  * Application router.
  * - /login and /register are public
- * - / is protected (requires auth)
- * - Runs checkAuth on mount to verify session
+ * - / is protected (requires auth in web; always accessible in desktop)
+ * - Runs checkAuth on mount in web mode only
  */
 export const AppRouter = () => {
   const checkAuth = useAuthStore((s) => s.checkAuth);
   const location = useLocation();
 
   useEffect(() => {
+    // checkAuth handles both modes:
+    // - Desktop: fetches /api/auth/me to hydrate the local user (no redirect)
+    // - Web: performs JWT refresh + /api/auth/me session check
     checkAuth();
   }, [checkAuth]);
 
@@ -140,6 +164,14 @@ export const AppRouter = () => {
       />
       <Route
         path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <MainApp />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
         element={
           <ProtectedRoute>
             <MainApp />
