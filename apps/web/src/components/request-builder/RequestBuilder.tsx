@@ -20,6 +20,7 @@ import { NLRequestBar } from '@/components/ai/NLRequestBar';
 import { NLRequestPreview } from '@/components/ai/NLRequestPreview';
 import { useNLRequest } from '@/hooks/useNLRequest';
 import { TestBuilderChat } from '@/components/ai/TestBuilderChat';
+import { useAnomalyStore } from '@/stores/anomalyStore';
 import styles from './RequestBuilder.module.css';
 
 /**
@@ -75,6 +76,20 @@ export const RequestBuilder = () => {
         environmentId: useEnvironmentStore.getState().activeEnvironmentId,
       });
       setResponse(activeTab.id, result);
+
+      // Anomaly detection — fire-and-forget (non-blocking)
+      if (result.success && result.response.status > 0) {
+        useAnomalyStore.getState().analyzeResponse({
+          method: activeTab.method,
+          url: requestUrl,
+          status: result.response.status,
+          responseTimeMs: result.response.timing.total,
+          responseSizeBytes: result.response.size,
+          responseBody: result.response.body,
+        });
+      } else {
+        useAnomalyStore.getState().reset();
+      }
 
       // Auto-run test script if one exists (non-blocking)
       const testScript = useTestRunnerStore.getState().getScript(activeTab.id);

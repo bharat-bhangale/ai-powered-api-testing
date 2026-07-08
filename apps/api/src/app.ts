@@ -59,6 +59,7 @@ import certificatesRouter from './modules/certificates/certificates.routes';
 import codeGenRouter from './modules/code-gen/code-gen.routes';
 import discoveryRouter from './modules/api-discovery/api-discovery.routes';
 import mockServerRouter from './modules/mock-server/mock-server.routes';
+import anomalyRouter from './modules/anomaly-detection/anomaly-detection.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -82,6 +83,7 @@ app.use('/api/certificates', certificatesRouter);
 app.use('/api/code-gen', codeGenRouter);
 app.use('/api/discovery', discoveryRouter);
 app.use('/api/mock-server', mockServerRouter);
+app.use('/api/anomalies', anomalyRouter);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {

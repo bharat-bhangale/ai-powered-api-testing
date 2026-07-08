@@ -1,0 +1,38 @@
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  border: none;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  letter-spacing: 0.02em;
+}
+
+.warning {
+  background: hsla(38, 92%, 50%, 0.15);
+  color: hsl(38, 92%, 50%);
+  border: 1px solid hsla(38, 92%, 50%, 0.3);
+}
+.warning:hover {
+  background: hsla(38, 92%, 50%, 0.25);
+}
+
+.critical {
+  background: hsla(0, 84%, 60%, 0.15);
+  color: hsl(0, 84%, 60%);
+  border: 1px solid hsla(0, 84%, 60%, 0.3);
+  animation: criticalPulse 2s ease infinite;
+}
+.critical:hover {
+  background: hsla(0, 84%, 60%, 0.25);
+}
+
+@keyframes criticalPulse {
+  0%, 100% { box-shadow: none; }
+  50%       { box-shadow: 0 0 0 3px hsla(0, 84%, 60%, 0.2); }
+}
