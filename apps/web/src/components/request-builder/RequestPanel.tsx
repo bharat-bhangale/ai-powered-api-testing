@@ -3,6 +3,7 @@ import { KeyValueEditor } from '@/components/common/KeyValueEditor';
 import { BodyEditor } from './BodyEditor';
 import { AuthConfigPanel } from './AuthConfig';
 import { TestEditor } from '@/components/test-runner/TestEditor';
+import { useTestBuilderStore } from '@/stores/testBuilderStore';
 import type { KeyValuePair, RequestBodyConfig, AuthConfig } from '@/stores/requestStore';
 import styles from './RequestPanel.module.css';
 
@@ -108,9 +109,43 @@ export const RequestPanel = ({
         )}
 
         {activeSubTab === 'tests' && (
-          <TestEditor />
+          <TestEditorWithBuilder />
         )}
       </div>
+    </div>
+  );
+};
+
+/**
+ * Wraps TestEditor with the AI Test Builder trigger button.
+ */
+const TestEditorWithBuilder = () => {
+  const openPanel = useTestBuilderStore((s) => s.openPanel);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          onClick={openPanel}
+          type="button"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '5px 12px',
+            background: 'linear-gradient(135deg, hsl(271, 76%, 53%), hsl(330, 80%, 55%))',
+            border: 'none',
+            borderRadius: 'var(--radius-md)',
+            color: 'white',
+            fontSize: '12px',
+            fontWeight: 600,
+            fontFamily: 'var(--font-sans)',
+            cursor: 'pointer',
+          }}
+        >
+          ✨ AI Test Builder
+        </button>
+      </div>
+      <TestEditor />
     </div>
   );
 };

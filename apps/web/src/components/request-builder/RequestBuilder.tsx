@@ -16,6 +16,10 @@ import { ResponseViewer } from '@/components/response-viewer/ResponseViewer';
 import { TestResultsPanel } from '@/components/test-runner/TestResultsPanel';
 import { useAutoTest } from '@/hooks/useAutoTest';
 import { generateCurl } from '@/utils/curl-generator';
+import { NLRequestBar } from '@/components/ai/NLRequestBar';
+import { NLRequestPreview } from '@/components/ai/NLRequestPreview';
+import { useNLRequest } from '@/hooks/useNLRequest';
+import { TestBuilderChat } from '@/components/ai/TestBuilderChat';
 import styles from './RequestBuilder.module.css';
 
 /**
@@ -25,6 +29,7 @@ import styles from './RequestBuilder.module.css';
 export const RequestBuilder = () => {
   // Hook: watches for new responses and triggers AI auto-testing
   useAutoTest();
+  const nlRequest = useNLRequest();
 
   const {
     tabs,
@@ -158,10 +163,14 @@ export const RequestBuilder = () => {
         e.preventDefault();
         handleCopyCurl();
       }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        nlRequest.toggleExpanded();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [handleSave, handleCopyCurl]);
+  }, [handleSave, handleCopyCurl, nlRequest]);
 
   if (!activeTab) return null;
 
@@ -173,6 +182,12 @@ export const RequestBuilder = () => {
       {/* Request section */}
       <div className={styles.workspace}>
         <div className={styles.requestSection}>
+          <NLRequestBar
+            isExpanded={nlRequest.isExpanded}
+            isGenerating={nlRequest.isGenerating}
+            onToggle={nlRequest.toggleExpanded}
+            onGenerate={nlRequest.generate}
+          />
           {/* URL Bar with Save button */}
           <div className={styles.urlSection}>
             <UrlBar
@@ -254,6 +269,18 @@ export const RequestBuilder = () => {
           onClose={() => setShowCodeGenModal(false)} 
         />
       )}
+
+      {/* AI Request Preview (NL→Request) */}
+      {nlRequest.generatedRequest && (
+        <NLRequestPreview
+          request={nlRequest.generatedRequest}
+          onAccept={nlRequest.acceptRequest}
+          onDiscard={nlRequest.discardRequest}
+        />
+      )}
+
+      {/* AI Test Builder Chat Drawer */}
+      <TestBuilderChat />
     </div>
   );
 };

@@ -1,0 +1,89 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  transition: border-color var(--transition-fast);
+}
+.row:hover { border-color: var(--color-primary); }
+
+.method {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  min-width: 52px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.GET    { background: hsla(142,70%,49%,0.15); color: #22c55e; border: 1px solid hsla(142,70%,49%,0.3); }
+.POST   { background: hsla(217,91%,60%,0.15); color: #60a5fa; border: 1px solid hsla(217,91%,60%,0.3); }
+.PUT    { background: hsla(38,92%,50%,0.15);  color: #fbbf24; border: 1px solid hsla(38,92%,50%,0.3);  }
+.PATCH  { background: hsla(271,76%,53%,0.15); color: #c084fc; border: 1px solid hsla(271,76%,53%,0.3); }
+.DELETE { background: hsla(0,84%,60%,0.15);   color: #f87171; border: 1px solid hsla(0,84%,60%,0.3);   }
+
+.url {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.badgeStateful { background: hsla(217,91%,60%,0.15); color: #60a5fa; }
+.badgePage     { background: hsla(271,76%,53%,0.15); color: #c084fc; }
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.copyBtn, .testBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+}
+
+.copyBtn {
+  background: var(--color-bg-hover);
+  color: var(--color-text-tertiary);
+}
+.copyBtn:hover { color: var(--color-text-primary); }
+
+.testBtn {
+  background: linear-gradient(135deg, hsl(217,91%,55%), hsl(271,76%,53%));
+  color: white;
+}
+.testBtn:hover { filter: brightness(1.1); }

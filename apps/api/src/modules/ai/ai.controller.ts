@@ -5,6 +5,8 @@ import { ChatService } from './features/chat.service';
 import { SuiteGeneratorService } from './features/suite-generator.service';
 import { CoverageAnalyzerService } from './features/coverage-analyzer.service';
 import { ApiDocGeneratorService } from './features/api-doc-generator.service';
+import { NLToRequestService } from './features/nl-to-request.service';
+import { ConversationalTestBuilderService } from './features/conversational-test-builder.service';
 import { usageTracker } from './utils/usage-tracker';
 
 const testGenerator = new TestGeneratorService();
@@ -13,6 +15,8 @@ const chatService = new ChatService();
 const suiteGenerator = new SuiteGeneratorService();
 const coverageAnalyzer = new CoverageAnalyzerService();
 const apiDocGenerator = new ApiDocGeneratorService();
+const nlToRequestService = new NLToRequestService();
+const convTestBuilderService = new ConversationalTestBuilderService();
 
 /**
  * POST /api/ai/generate-tests
@@ -261,6 +265,87 @@ export async function downloadDocs(req: Request, res: Response): Promise<void> {
     }
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Doc generation failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/nl-to-request
+ * Converts a plain English description into a complete API request configuration.
+ * Body: { naturalLanguage, collectionContext, environmentVariables }
+ */
+export async function nlToRequest(req: Request, res: Response): Promise<void> {
+  try {
+    if (!usageTracker.canUse(req.userId!)) {
+      res.status(429).json({
+        success: false,
+        error: { code: 'RATE_LIMIT', message: 'Daily AI limit reached. Resets at midnight.' },
+      });
+      return;
+    }
+
+    const { naturalLanguage, collectionContext, environmentVariables } = req.body;
+
+    if (!naturalLanguage || typeof naturalLanguage !== 'string' || !naturalLanguage.trim()) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'naturalLanguage is required' },
+      });
+      return;
+    }
+
+    const result = await nlToRequestService.convertToRequest({
+      naturalLanguage: naturalLanguage.trim(),
+      collectionContext: collectionContext || { requests: [] },
+      environmentVariables: Array.isArray(environmentVariables) ? environmentVariables : [],
+    });
+
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'NL to request conversion failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/test-builder/message
+ * Sends a message to the conversational test builder.
+ * Body: { message, conversationHistory, requestContext, existingTestScript? }
+ */
+export async function testBuilderMessage(req: Request, res: Response): Promise<void> {
+  try {
+    if (!usageTracker.canUse(req.userId!)) {
+      res.status(429).json({
+        success: false,
+        error: { code: 'RATE_LIMIT', message: 'Daily AI limit reached. Resets at midnight.' },
+      });
+      return;
+    }
+
+    const { message, conversationHistory, requestContext, existingTestScript } = req.body;
+
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'message is required' },
+      });
+      return;
+    }
+
+    const result = await convTestBuilderService.sendMessage({
+      message: message.trim(),
+      conversationHistory: Array.isArray(conversationHistory) ? conversationHistory.slice(-20) : [],
+      requestContext: requestContext || { method: 'GET', url: '' },
+      existingTestScript: existingTestScript || '',
+    });
+
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Test builder conversation failed';
     res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
   }
 }
