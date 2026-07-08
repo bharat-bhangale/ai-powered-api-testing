@@ -18,6 +18,7 @@ import {
   type ContextMenuAction,
 } from './ContextMenu';
 import { PerformanceProfiler } from '@/components/ai/PerformanceProfiler';
+import { APIDiffPanel } from '@/components/api-diff/APIDiffPanel';
 import styles from './CollectionTree.module.css';
 
 const METHOD_COLORS: Record<string, string> = {
@@ -51,6 +52,7 @@ export const CollectionTree = () => {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const [profilerTarget, setProfilerTarget] = useState<{ id: string; name: string } | null>(null);
+  const [diffTarget, setDiffTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Find the active tab's savedRequestId for highlighting
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -195,6 +197,13 @@ export const CollectionTree = () => {
           if (type === 'collection') {
             const col = collections.find((c) => c._id === targetId);
             if (col) setProfilerTarget({ id: targetId, name: col.name });
+          }
+          break;
+
+        case 'diff':
+          if (type === 'collection') {
+            const col = collections.find((c) => c._id === targetId);
+            if (col) setDiffTarget({ id: targetId, name: col.name });
           }
           break;
       }
@@ -361,6 +370,16 @@ export const CollectionTree = () => {
         collectionId={profilerTarget.id}
         collectionName={profilerTarget.name}
         onClose={() => setProfilerTarget(null)}
+      />
+    )}
+
+    {/* API Diff Panel */}
+    {diffTarget && (
+      <APIDiffPanel
+        isOpen
+        collectionId={diffTarget.id}
+        collectionName={diffTarget.name}
+        onClose={() => setDiffTarget(null)}
       />
     )}
     </>

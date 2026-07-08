@@ -1,0 +1,93 @@
+.item {
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.endpoint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-hover);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change {
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* Impact / signal rows */
+.metaRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+}
+.metaLabel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+}
+.metaValue { color: var(--color-text-secondary); line-height: 1.5; }
+
+/* Migration box */
+.migration {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: color-mix(in srgb, hsl(217,91%,60%) 6%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, hsl(217,91%,60%) 18%, transparent);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.migrationIcon { color: hsl(217,91%,60%); flex-shrink: 0; margin-top: 1px; }
+
+/* Risk badge for drifts */
+.riskBadge {
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+.riskHigh   { background: hsla(0,84%,60%,0.15);   color: hsl(0,84%,60%);   }
+.riskMedium { background: hsla(38,92%,50%,0.15);  color: hsl(38,92%,50%);  }
+.riskLow    { background: hsla(217,91%,60%,0.15); color: hsl(217,91%,60%); }
+
+/* Deadline badge */
+.deadlineBadge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: hsla(0,84%,60%,0.1);
+  color: hsl(0,84%,60%);
+  font-family: var(--font-mono);
+}
