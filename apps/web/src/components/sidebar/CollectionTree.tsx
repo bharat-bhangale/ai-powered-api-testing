@@ -17,6 +17,7 @@ import {
   REQUEST_MENU_ITEMS,
   type ContextMenuAction,
 } from './ContextMenu';
+import { PerformanceProfiler } from '@/components/ai/PerformanceProfiler';
 import styles from './CollectionTree.module.css';
 
 const METHOD_COLORS: Record<string, string> = {
@@ -49,6 +50,7 @@ export const CollectionTree = () => {
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [profilerTarget, setProfilerTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Find the active tab's savedRequestId for highlighting
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -188,6 +190,13 @@ export const CollectionTree = () => {
             }
           }
           break;
+
+        case 'profile':
+          if (type === 'collection') {
+            const col = collections.find((c) => c._id === targetId);
+            if (col) setProfilerTarget({ id: targetId, name: col.name });
+          }
+          break;
       }
     },
     [contextMenu, collections, deleteCollection, addFolder, fetchCollections],
@@ -213,6 +222,7 @@ export const CollectionTree = () => {
   );
 
   return (
+    <>
     <div className={styles.tree}>
       {collections.map((collection) => {
         const isExpanded = expandedIds.has(collection._id);
@@ -343,6 +353,17 @@ export const CollectionTree = () => {
         />
       )}
     </div>
+
+    {/* Performance Profiler Panel */}
+    {profilerTarget && (
+      <PerformanceProfiler
+        isOpen
+        collectionId={profilerTarget.id}
+        collectionName={profilerTarget.name}
+        onClose={() => setProfilerTarget(null)}
+      />
+    )}
+    </>
   );
 };
 

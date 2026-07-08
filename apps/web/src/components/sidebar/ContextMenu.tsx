@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Pencil, Trash2, Copy, FolderInput } from 'lucide-react';
+import { Pencil, Trash2, Copy, FolderInput, BarChart3 } from 'lucide-react';
 import styles from './ContextMenu.module.css';
 
-export type ContextMenuAction = 'rename' | 'delete' | 'duplicate' | 'addFolder' | 'move' | 'export';
+export type ContextMenuAction = 'rename' | 'delete' | 'duplicate' | 'addFolder' | 'move' | 'export' | 'profile';
 
 interface ContextMenuItem {
   action: ContextMenuAction;
@@ -73,6 +73,7 @@ export const ContextMenu = ({ x, y, items, onAction, onClose }: ContextMenuProps
 
 /** Context menu items for collections */
 export const COLLECTION_MENU_ITEMS: ContextMenuItem[] = [
+  { action: 'profile', label: '📊 Performance Profile', icon: <BarChart3 size={13} /> },
   { action: 'export', label: 'Export Collection', icon: <FolderInput size={13} /> },
   { action: 'rename', label: 'Rename', icon: <Pencil size={13} /> },
   { action: 'addFolder', label: 'Add Folder', icon: <FolderInput size={13} /> },
