@@ -1,0 +1,174 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ── Collapsed trigger row ─────────────────────────────────────── */
+.triggerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.triggerBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 5px 10px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.triggerBtn:hover {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+}
+
+.triggerIcon {
+  color: var(--color-warning);
+}
+
+/* ── Expanded input bar ────────────────────────────────────────── */
+.inputRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-warning);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-warning) 12%, transparent);
+  animation: expandIn 150ms ease;
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sparkleIcon {
+  color: var(--color-warning);
+  flex-shrink: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.nlInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  caret-color: var(--color-warning);
+}
+
+.nlInput::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.nlInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.charCount {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.charCount.nearLimit {
+  color: var(--color-warning);
+}
+
+.generateBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 6px 12px;
+  background: var(--color-warning);
+  border: none;
+  border-radius: var(--radius-md);
+  color: #000;
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.generateBtn:hover {
+  filter: brightness(1.1);
+}
+
+.generateBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.closeBtn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* ── Loading state ─────────────────────────────────────────────── */
+.spinnerWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+  border-top-color: var(--color-warning);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

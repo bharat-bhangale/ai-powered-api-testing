@@ -105,6 +105,16 @@ interface RequestStore {
   setResponse: (tabId: string, response: ExecutionResponse) => void;
   setLoading: (tabId: string, loading: boolean) => void;
 
+  // AI Population
+  populateFromAI: (config: {
+    method: HttpMethod;
+    url: string;
+    headers: KeyValuePair[];
+    params: KeyValuePair[];
+    body: RequestBodyConfig;
+    auth?: AuthConfig;
+  }) => void;
+
   // Save/Load
   loadSavedRequest: (saved: {
     _id: string;
@@ -255,6 +265,22 @@ export const useRequestStore = create<RequestStore>((set) => {
           t.id === tabId ? { ...t, isLoading: loading } : t,
         ),
       }));
+    },
+
+    populateFromAI: (config) => {
+      set((state) => {
+        const currentTab = state.tabs.find((t) => t.id === state.activeTabId);
+        return {
+          tabs: updateTab(state.tabs, state.activeTabId, {
+            method: config.method,
+            url: config.url,
+            headers: config.headers,
+            params: config.params,
+            body: config.body,
+            auth: config.auth || currentTab?.auth || { type: 'none' },
+          }),
+        };
+      });
     },
 
     loadSavedRequest: (saved) => {
