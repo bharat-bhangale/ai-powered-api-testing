@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateTests, debugRequest, chat, getUsage, generateSuite, analyzeCoverage, generateDocs, downloadDocs, nlToRequest, testBuilderMessage, performanceProfile } from './ai.controller';
+import { generateTests, debugRequest, chat, getUsage, generateSuite, analyzeCoverage, generateDocs, downloadDocs, nlToRequest, testBuilderMessage, performanceProfile, optimizeRequest } from './ai.controller';
 import { authenticate } from '../../middleware/authenticate';
 
 const router = Router();
@@ -18,5 +18,6 @@ router.post('/generate-docs/download', downloadDocs);
 router.post('/nl-to-request', nlToRequest);
 router.post('/test-builder/message', testBuilderMessage);
 router.post('/performance-profile', performanceProfile);
+router.post('/optimize-request', optimizeRequest);
 
 export default router;

@@ -4,6 +4,7 @@ import { VariableInput } from '@/components/common/VariableInput';
 import { parseCurl } from '@/utils/curl-parser';
 import { toast } from 'sonner';
 import { useRequestStore } from '@/stores/requestStore';
+import { Lightbulb } from 'lucide-react';
 import type { HttpMethod } from '@/stores/requestStore';
 import styles from './UrlBar.module.css';
 
@@ -14,6 +15,12 @@ interface UrlBarProps {
   onMethodChange: (method: HttpMethod) => void;
   onUrlChange: (url: string) => void;
   onSend: () => void;
+  // Optimizer
+  canOptimize?: boolean;
+  isOptimizing?: boolean;
+  optimizerCount?: number;
+  optimizerSeverity?: 'critical' | 'warning' | 'info' | null;
+  onOptimize?: () => void;
 }
 
 export const UrlBar = ({
@@ -23,6 +30,11 @@ export const UrlBar = ({
   onMethodChange,
   onUrlChange,
   onSend,
+  canOptimize = false,
+  isOptimizing = false,
+  optimizerCount = 0,
+  optimizerSeverity = null,
+  onOptimize,
 }: UrlBarProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const { updateHeaders, updateParams, updateBody, updateAuth } = useRequestStore();
@@ -57,6 +69,23 @@ export const UrlBar = ({
     [onMethodChange, onUrlChange, updateHeaders, updateParams, updateBody, updateAuth],
   );
 
+  const SEVERITY_BTN: Record<string, string> = {
+    critical: styles['optimizerBtnCritical'] as string,
+    warning:  styles['optimizerBtnWarning'] as string,
+    info:     styles['optimizerBtnInfo'] as string,
+  };
+  const SEVERITY_BADGE: Record<string, string> = {
+    critical: '',
+    warning:  styles['optimizerBadgeWarning'] as string,
+    info:     styles['optimizerBadgeInfo'] as string,
+  };
+
+  const optimizerBtnCls = [
+    styles.optimizerBtn,
+    optimizerSeverity ? SEVERITY_BTN[optimizerSeverity] : '',
+    isOptimizing ? styles.optimizerAnalyzing : '',
+  ].filter(Boolean).join(' ');
+
   return (
     <div className={styles.urlBar} onPaste={handlePaste} onKeyDown={handleKeyDown}>
       <MethodSelector method={method} onChange={onMethodChange} />
@@ -68,6 +97,23 @@ export const UrlBar = ({
         onChange={onUrlChange}
         placeholder="Enter request URL or paste cURL"
       />
+
+      {/* 💡 Optimizer button */}
+      <button
+        className={optimizerBtnCls}
+        onClick={onOptimize}
+        disabled={!canOptimize && !isOptimizing}
+        title={isOptimizing ? 'Analyzing…' : canOptimize ? 'Analyze request quality' : 'Send a request first'}
+        aria-label="Optimize request"
+        type="button"
+      >
+        <Lightbulb size={14} />
+        {optimizerCount > 0 && (
+          <span className={`${styles.optimizerBadge} ${optimizerSeverity ? SEVERITY_BADGE[optimizerSeverity] ?? '' : ''}`}>
+            {optimizerCount}
+          </span>
+        )}
+      </button>
 
       <button
         id="send-button"

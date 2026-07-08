@@ -8,6 +8,7 @@ import { ApiDocGeneratorService } from './features/api-doc-generator.service';
 import { NLToRequestService } from './features/nl-to-request.service';
 import { ConversationalTestBuilderService } from './features/conversational-test-builder.service';
 import { PerformanceProfilerService } from './features/performance-profiler.service';
+import { RequestOptimizerService } from './features/request-optimizer.service';
 import { usageTracker } from './utils/usage-tracker';
 
 const testGenerator = new TestGeneratorService();
@@ -19,6 +20,7 @@ const apiDocGenerator = new ApiDocGeneratorService();
 const nlToRequestService = new NLToRequestService();
 const convTestBuilderService = new ConversationalTestBuilderService();
 const performanceProfiler = new PerformanceProfilerService();
+const requestOptimizer = new RequestOptimizerService();
 
 /**
  * POST /api/ai/generate-tests
@@ -385,5 +387,65 @@ export async function performanceProfile(req: Request, res: Response): Promise<v
     const message = error instanceof Error ? error.message : 'Performance profiling failed';
     const status = message.includes('Minimum') ? 400 : 500;
     res.status(status).json({ success: false, error: { code: 'PROFILE_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/optimize-request
+ * AI analyzes request configuration + response and returns optimization suggestions.
+ * Body: { request, response }
+ */
+export async function optimizeRequest(req: Request, res: Response): Promise<void> {
+  try {
+    if (!usageTracker.canUse(req.userId!)) {
+      res.status(429).json({
+        success: false,
+        error: { code: 'RATE_LIMIT', message: 'Daily AI limit reached. Resets at midnight.' },
+      });
+      return;
+    }
+
+    const { request, response } = req.body;
+
+    if (!request?.method || !request?.url) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'request.method and request.url are required' },
+      });
+      return;
+    }
+
+    if (!response?.status) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'response.status is required' },
+      });
+      return;
+    }
+
+    const result = await requestOptimizer.optimize(
+      {
+        method: request.method,
+        url: request.url,
+        headers: Array.isArray(request.headers) ? request.headers : [],
+        params: Array.isArray(request.params) ? request.params : [],
+        body: request.body || { mode: 'none', content: '' },
+      },
+      {
+        status: response.status,
+        statusText: response.statusText || '',
+        headers: response.headers || {},
+        body: response.body,
+        size: response.size || 0,
+        timing: response.timing?.total || 0,
+      },
+    );
+
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Request optimization failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
   }
 }

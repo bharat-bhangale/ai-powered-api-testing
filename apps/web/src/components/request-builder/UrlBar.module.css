@@ -76,3 +76,66 @@
     transform: rotate(360deg);
   }
 }
+
+/* ── Optimizer button ──────────────────────────────────────── */
+.optimizerBtn {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 28px;
+  margin: 0 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.optimizerBtn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+.optimizerBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Severity color states */
+.optimizerBtnCritical { color: hsl(0,84%,60%); border-color: hsla(0,84%,60%,0.3); background: hsla(0,84%,60%,0.08); }
+.optimizerBtnCritical:hover { background: hsla(0,84%,60%,0.15); }
+.optimizerBtnWarning  { color: hsl(38,92%,50%); border-color: hsla(38,92%,50%,0.3); background: hsla(38,92%,50%,0.08); }
+.optimizerBtnWarning:hover  { background: hsla(38,92%,50%,0.15); }
+.optimizerBtnInfo     { color: hsl(217,91%,60%); border-color: hsla(217,91%,60%,0.3); background: hsla(217,91%,60%,0.08); }
+.optimizerBtnInfo:hover     { background: hsla(217,91%,60%,0.15); }
+
+/* Count badge */
+.optimizerBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(0,84%,60%);
+  color: white;
+  pointer-events: none;
+}
+.optimizerBadgeWarning { background: hsl(38,92%,50%); color: hsl(25,10%,10%); }
+.optimizerBadgeInfo    { background: hsl(217,91%,60%); }
+
+/* Analyzing pulse */
+.optimizerAnalyzing { animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
