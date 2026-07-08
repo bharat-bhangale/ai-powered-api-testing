@@ -19,6 +19,7 @@ import { generateCurl } from '@/utils/curl-generator';
 import { NLRequestBar } from '@/components/ai/NLRequestBar';
 import { NLRequestPreview } from '@/components/ai/NLRequestPreview';
 import { useNLRequest } from '@/hooks/useNLRequest';
+import { TestBuilderChat } from '@/components/ai/TestBuilderChat';
 import styles from './RequestBuilder.module.css';
 
 /**
@@ -269,7 +270,7 @@ export const RequestBuilder = () => {
         />
       )}
 
-      {/* AI Request Preview */}
+      {/* AI Request Preview (NL→Request) */}
       {nlRequest.generatedRequest && (
         <NLRequestPreview
           request={nlRequest.generatedRequest}
@@ -277,6 +278,9 @@ export const RequestBuilder = () => {
           onDiscard={nlRequest.discardRequest}
         />
       )}
+
+      {/* AI Test Builder Chat Drawer */}
+      <TestBuilderChat />
     </div>
   );
 };
