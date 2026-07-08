@@ -1,0 +1,85 @@
+.card {
+  padding: var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: border-color var(--transition-fast);
+}
+.card:hover { border-color: var(--color-primary); }
+
+/* Severity left accent */
+.cardCritical { border-left: 3px solid hsl(0,84%,60%); }
+.cardHigh     { border-left: 3px solid hsl(25,95%,55%); }
+.cardMedium   { border-left: 3px solid hsl(38,92%,50%); }
+.cardLow      { border-left: 3px solid hsl(217,91%,60%); }
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.endpoint {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-weight: var(--font-medium);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.severityBadge {
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+.critical { background: hsla(0,84%,60%,0.15);   color: hsl(0,84%,60%);   }
+.high     { background: hsla(25,95%,55%,0.15);  color: hsl(25,95%,55%);  }
+.medium   { background: hsla(38,92%,50%,0.15);  color: hsl(38,92%,50%);  }
+.low      { background: hsla(217,91%,60%,0.15); color: hsl(217,91%,60%); }
+
+.timingBadge {
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-hover);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.issue {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.suggestion {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: color-mix(in srgb, hsl(142,70%,45%) 6%, var(--color-bg-surface));
+  border: 1px solid color-mix(in srgb, hsl(142,70%,45%) 15%, transparent);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.suggestionIcon { color: hsl(142,70%,45%); flex-shrink: 0; margin-top: 1px; }

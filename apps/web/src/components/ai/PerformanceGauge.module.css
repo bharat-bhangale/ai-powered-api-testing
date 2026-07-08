@@ -1,0 +1,38 @@
+.gaugeContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gaugeSvg { overflow: visible; }
+
+.scoreText {
+  font-size: 28px;
+  font-weight: var(--font-bold);
+  font-family: var(--font-mono);
+  fill: var(--color-text-primary);
+  dominant-baseline: middle;
+  text-anchor: middle;
+}
+
+.scoreLabel {
+  font-size: 10px;
+  fill: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  dominant-baseline: middle;
+  text-anchor: middle;
+}
+
+.grade {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  text-align: center;
+}
+.gradeExcellent { color: hsl(142,70%,45%); }
+.gradeGood      { color: hsl(142,70%,55%); }
+.gradeFair      { color: hsl(38,92%,50%); }
+.gradePoor      { color: hsl(25,95%,55%); }
+.gradeCritical  { color: hsl(0,84%,60%); }

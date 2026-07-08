@@ -5,6 +5,9 @@ import { ResponseBody } from './ResponseBody';
 import { ResponseHeaders } from './ResponseHeaders';
 import { AITestSuggestions } from '@/components/ai/AITestSuggestions';
 import { AIDebugPanel } from '@/components/ai/AIDebugPanel';
+import { AnomalyBanner } from '@/components/anomaly/AnomalyBanner';
+import { AnomalyDetailPanel } from '@/components/anomaly/AnomalyDetailPanel';
+import { AnomalyIndicator } from '@/components/anomaly/AnomalyIndicator';
 import styles from './ResponseViewer.module.css';
 
 type ResponseTab = 'body' | 'headers' | 'cookies';
@@ -82,11 +85,16 @@ export const ResponseViewer = ({ response, isLoading }: ResponseViewerProps) => 
           time={resp.timing.total}
           size={resp.size}
         />
+        <AnomalyIndicator />
         <div className={styles.aiActions}>
           <AITestSuggestions />
           <AIDebugPanel />
         </div>
       </div>
+
+      {/* Anomaly banner + detail panel */}
+      <AnomalyBanner />
+      <AnomalyDetailPanel />
 
       {/* Tab bar */}
       <div className={styles.tabBar}>

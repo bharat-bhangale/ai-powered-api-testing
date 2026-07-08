@@ -20,6 +20,9 @@ import { NLRequestBar } from '@/components/ai/NLRequestBar';
 import { NLRequestPreview } from '@/components/ai/NLRequestPreview';
 import { useNLRequest } from '@/hooks/useNLRequest';
 import { TestBuilderChat } from '@/components/ai/TestBuilderChat';
+import { RequestOptimizer } from '@/components/ai/RequestOptimizer';
+import { useRequestOptimizer } from '@/hooks/useRequestOptimizer';
+import { useAnomalyStore } from '@/stores/anomalyStore';
 import styles from './RequestBuilder.module.css';
 
 /**
@@ -30,6 +33,7 @@ export const RequestBuilder = () => {
   // Hook: watches for new responses and triggers AI auto-testing
   useAutoTest();
   const nlRequest = useNLRequest();
+  const optimizer = useRequestOptimizer();
 
   const {
     tabs,
@@ -75,6 +79,20 @@ export const RequestBuilder = () => {
         environmentId: useEnvironmentStore.getState().activeEnvironmentId,
       });
       setResponse(activeTab.id, result);
+
+      // Anomaly detection — fire-and-forget (non-blocking)
+      if (result.success && result.response.status > 0) {
+        useAnomalyStore.getState().analyzeResponse({
+          method: activeTab.method,
+          url: requestUrl,
+          status: result.response.status,
+          responseTimeMs: result.response.timing.total,
+          responseSizeBytes: result.response.size,
+          responseBody: result.response.body,
+        });
+      } else {
+        useAnomalyStore.getState().reset();
+      }
 
       // Auto-run test script if one exists (non-blocking)
       const testScript = useTestRunnerStore.getState().getScript(activeTab.id);
@@ -197,6 +215,11 @@ export const RequestBuilder = () => {
               onMethodChange={updateMethod}
               onUrlChange={updateUrl}
               onSend={handleSend}
+              canOptimize={optimizer.canAnalyze}
+              isOptimizing={optimizer.isAnalyzing}
+              optimizerCount={optimizer.count}
+              optimizerSeverity={optimizer.maxSeverity}
+              onOptimize={optimizer.trigger}
             />
             <button
               className={styles.saveButton}
@@ -281,6 +304,12 @@ export const RequestBuilder = () => {
 
       {/* AI Test Builder Chat Drawer */}
       <TestBuilderChat />
+
+      {/* AI Request Optimizer Panel */}
+      <RequestOptimizer 
+        isOpen={optimizer.isPanelOpen} 
+        onClose={optimizer.closePanel} 
+      />
     </div>
   );
 };
