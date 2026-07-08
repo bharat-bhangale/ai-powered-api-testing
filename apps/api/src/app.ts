@@ -58,6 +58,7 @@ import backupsRouter from './modules/backups/backups.routes';
 import certificatesRouter from './modules/certificates/certificates.routes';
 import codeGenRouter from './modules/code-gen/code-gen.routes';
 import discoveryRouter from './modules/api-discovery/api-discovery.routes';
+import mockServerRouter from './modules/mock-server/mock-server.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -80,6 +81,7 @@ app.use('/api/backups', backupsRouter);
 app.use('/api/certificates', certificatesRouter);
 app.use('/api/code-gen', codeGenRouter);
 app.use('/api/discovery', discoveryRouter);
+app.use('/api/mock-server', mockServerRouter);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {

@@ -1,9 +1,10 @@
-import { Zap, Moon, Sun, Monitor, Sparkles, Settings, Radar } from 'lucide-react';
+import { Zap, Moon, Sun, Monitor, Sparkles, Settings, Radar, Server } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useAIStore } from '@/stores/aiStore';
 import { APIDiscovery } from '@/components/ai/APIDiscovery';
+import { MockServerPanel } from '@/components/mock-server/MockServerPanel';
 import styles from './TopBar.module.css';
 
 /**
@@ -16,6 +17,7 @@ export const TopBar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showDiscovery, setShowDiscovery] = useState(false);
+  const [showMockServer, setShowMockServer] = useState(false);
 
   const cycleTheme = () => {
     const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
@@ -57,6 +59,15 @@ export const TopBar = () => {
           <Radar size={15} />
         </button>
         <button
+          id="mock-server-button"
+          className={styles.aiButton}
+          onClick={() => setShowMockServer(true)}
+          title="AI Smart Mock Server"
+          type="button"
+        >
+          <Server size={15} />
+        </button>
+        <button
           className={`${styles.themeButton} ${location.pathname === '/settings' ? styles.active : ''}`}
           onClick={() => navigate('/settings')}
           title="Settings"
@@ -77,6 +88,8 @@ export const TopBar = () => {
 
     {/* API Discovery Panel */}
     <APIDiscovery isOpen={showDiscovery} onClose={() => setShowDiscovery(false)} />
+    {/* Mock Server Panel */}
+    <MockServerPanel isOpen={showMockServer} onClose={() => setShowMockServer(false)} />
     </>
   );
 };
