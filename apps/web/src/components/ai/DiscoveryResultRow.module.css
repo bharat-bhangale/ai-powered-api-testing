@@ -1,0 +1,87 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  animation: rowIn 200ms ease;
+}
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.row:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+
+/* Method Badge */
+.method {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  min-width: 52px;
+  text-align: center;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.GET    { background: hsla(142,70%,49%,0.15); color: #22c55e; border: 1px solid hsla(142,70%,49%,0.3); }
+.POST   { background: hsla(217,91%,60%,0.15); color: #60a5fa; border: 1px solid hsla(217,91%,60%,0.3); }
+.PUT    { background: hsla(38,92%,50%,0.15);  color: #fbbf24; border: 1px solid hsla(38,92%,50%,0.3);  }
+.PATCH  { background: hsla(271,76%,53%,0.15); color: #c084fc; border: 1px solid hsla(271,76%,53%,0.3); }
+.DELETE { background: hsla(0,84%,60%,0.15);   color: #f87171; border: 1px solid hsla(0,84%,60%,0.3);   }
+
+/* Path */
+.path {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status */
+.status {
+  font-size: 11px;
+  font-weight: var(--font-semibold);
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.status2xx { color: #22c55e; background: hsla(142,70%,49%,0.12); }
+.status3xx { color: #60a5fa; background: hsla(217,91%,60%,0.12); }
+.status4xx { color: #fbbf24; background: hsla(38,92%,50%,0.12);  }
+.status5xx { color: #f87171; background: hsla(0,84%,60%,0.12);   }
+
+/* Type badge */
+.typeBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  text-transform: capitalize;
+}
+
+/* Field count */
+.fields {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  min-width: 50px;
+  text-align: right;
+}

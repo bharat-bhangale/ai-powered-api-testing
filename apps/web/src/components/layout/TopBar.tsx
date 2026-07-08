@@ -1,7 +1,9 @@
-import { Zap, Moon, Sun, Monitor, Sparkles, Settings } from 'lucide-react';
+import { Zap, Moon, Sun, Monitor, Sparkles, Settings, Radar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
 import { useTheme } from '@/hooks/useTheme';
 import { useAIStore } from '@/stores/aiStore';
+import { APIDiscovery } from '@/components/ai/APIDiscovery';
 import styles from './TopBar.module.css';
 
 /**
@@ -13,6 +15,7 @@ export const TopBar = () => {
   const isPanelOpen = useAIStore((s) => s.isPanelOpen);
   const navigate = useNavigate();
   const location = useLocation();
+  const [showDiscovery, setShowDiscovery] = useState(false);
 
   const cycleTheme = () => {
     const themes: Array<'dark' | 'light' | 'system'> = ['dark', 'light', 'system'];
@@ -24,6 +27,7 @@ export const TopBar = () => {
   const ThemeIcon = theme === 'dark' ? Moon : theme === 'light' ? Sun : Monitor;
 
   return (
+    <>
     <header className={styles.topBar}>
       <div className={styles.left}>
         <div className={styles.logo}>
@@ -44,6 +48,15 @@ export const TopBar = () => {
           <Sparkles size={15} />
         </button>
         <button
+          id="api-discovery-button"
+          className={styles.aiButton}
+          onClick={() => setShowDiscovery(true)}
+          title="AI API Reverse Engineer"
+          type="button"
+        >
+          <Radar size={15} />
+        </button>
+        <button
           className={`${styles.themeButton} ${location.pathname === '/settings' ? styles.active : ''}`}
           onClick={() => navigate('/settings')}
           title="Settings"
@@ -61,5 +74,9 @@ export const TopBar = () => {
         </button>
       </div>
     </header>
+
+    {/* API Discovery Panel */}
+    <APIDiscovery isOpen={showDiscovery} onClose={() => setShowDiscovery(false)} />
+    </>
   );
 };
