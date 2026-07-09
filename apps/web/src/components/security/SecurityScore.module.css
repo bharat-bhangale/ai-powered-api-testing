@@ -1,0 +1,58 @@
+.scoreWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+}
+
+/* SVG gauge */
+.gauge { position: relative; }
+.gaugeLabel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.gaugeScore {
+  font-size: 28px;
+  font-weight: var(--font-bold);
+  font-family: var(--font-mono);
+  line-height: 1;
+}
+.gaugeText { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-tertiary); }
+
+/* Category grid */
+.categories {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-2);
+  width: 100%;
+}
+.categoryItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: var(--space-2);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+.categoryLabel { font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-tertiary); }
+.categoryName { font-size: 10px; color: var(--color-text-secondary); text-align: center; }
+.categoryDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dotSafe     { background: hsl(142,70%,45%); }
+.dotVuln     { background: hsl(0,84%,60%); }
+.dotUnknown  { background: var(--color-text-tertiary); }

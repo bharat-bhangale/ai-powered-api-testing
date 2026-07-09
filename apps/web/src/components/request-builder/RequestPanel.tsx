@@ -4,6 +4,7 @@ import { BodyEditor } from './BodyEditor';
 import { AuthConfigPanel } from './AuthConfig';
 import { TestEditor } from '@/components/test-runner/TestEditor';
 import { useTestBuilderStore } from '@/stores/testBuilderStore';
+import { DataGenerator } from '@/components/ai/DataGenerator';
 import type { KeyValuePair, RequestBodyConfig, AuthConfig } from '@/stores/requestStore';
 import styles from './RequestPanel.module.css';
 
@@ -14,6 +15,8 @@ interface RequestPanelProps {
   headers: KeyValuePair[];
   body: RequestBodyConfig;
   auth: AuthConfig;
+  method?: string;
+  url?: string;
   onParamsChange: (params: KeyValuePair[]) => void;
   onHeadersChange: (headers: KeyValuePair[]) => void;
   onBodyChange: (body: RequestBodyConfig) => void;
@@ -36,6 +39,8 @@ export const RequestPanel = ({
   headers,
   body,
   auth,
+  method = 'POST',
+  url = '/',
   onParamsChange,
   onHeadersChange,
   onBodyChange,
@@ -96,11 +101,11 @@ export const RequestPanel = ({
         )}
 
         {activeSubTab === 'body' && (
-          <BodyEditor
-            mode={body.mode}
-            content={body.content}
-            onModeChange={(mode) => onBodyChange({ ...body, mode: mode as RequestBodyConfig['mode'] })}
-            onContentChange={(content) => onBodyChange({ ...body, content })}
+          <BodyEditorWithDataGen
+            body={body}
+            method={method}
+            url={url}
+            onBodyChange={onBodyChange}
           />
         )}
 
@@ -150,3 +155,64 @@ const TestEditorWithBuilder = () => {
   );
 };
 
+/**
+ * Wraps BodyEditor with the AI Smart Data Generator trigger button.
+ */
+const BodyEditorWithDataGen = ({
+  body,
+  method,
+  url,
+  onBodyChange,
+}: {
+  body: RequestBodyConfig;
+  method: string;
+  url: string;
+  onBodyChange: (body: RequestBodyConfig) => void;
+}) => {
+  const [showDataGen, setShowDataGen] = useState(false);
+  const isJson = body.mode === 'json' || body.mode === 'raw';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+      {/* 🎲 button — only shown for JSON/raw body modes */}
+      {isJson && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setShowDataGen(true)}
+            type="button"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              background: 'linear-gradient(135deg, hsl(280, 80%, 60%), hsl(320, 75%, 55%))',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              cursor: 'pointer',
+            }}
+          >
+            🎲 Generate Smart Data
+          </button>
+        </div>
+      )}
+      <BodyEditor
+        mode={body.mode}
+        content={body.content}
+        onModeChange={(mode) => onBodyChange({ ...body, mode: mode as RequestBodyConfig['mode'] })}
+        onContentChange={(content) => onBodyChange({ ...body, content })}
+      />
+      <DataGenerator
+        isOpen={showDataGen}
+        method={method}
+        url={url}
+        currentBody={body.content}
+        onApply={(json) => onBodyChange({ ...body, content: json })}
+        onClose={() => setShowDataGen(false)}
+      />
+    </div>
+  );
+};

@@ -9,6 +9,8 @@ import { NLToRequestService } from './features/nl-to-request.service';
 import { ConversationalTestBuilderService } from './features/conversational-test-builder.service';
 import { PerformanceProfilerService } from './features/performance-profiler.service';
 import { RequestOptimizerService } from './features/request-optimizer.service';
+import { DataGeneratorService } from './features/data-generator.service';
+import { HealthScoreService } from './features/health-score.service';
 import { usageTracker } from './utils/usage-tracker';
 
 const testGenerator = new TestGeneratorService();
@@ -21,6 +23,8 @@ const nlToRequestService = new NLToRequestService();
 const convTestBuilderService = new ConversationalTestBuilderService();
 const performanceProfiler = new PerformanceProfilerService();
 const requestOptimizer = new RequestOptimizerService();
+const dataGenerator = new DataGeneratorService();
+const healthScoreService = new HealthScoreService();
 
 /**
  * POST /api/ai/generate-tests
@@ -446,6 +450,86 @@ export async function optimizeRequest(req: Request, res: Response): Promise<void
     res.json({ success: true, data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Request optimization failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/generate-data
+ * Generates contextually realistic test data from a request body structure.
+ */
+export async function generateData(req: Request, res: Response): Promise<void> {
+  try {
+    const { bodyStructure, method, url, preset, customInstruction } = req.body;
+
+    if (!bodyStructure || typeof bodyStructure !== 'object') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'bodyStructure (object) is required' },
+      });
+      return;
+    }
+
+    const validPresets = ['happy_path', 'edge_cases', 'international', 'minimal', 'maximum'];
+    const resolvedPreset = validPresets.includes(preset) ? preset : 'happy_path';
+
+    const result = await dataGenerator.generate({
+      bodyStructure: bodyStructure as Record<string, unknown>,
+      method: String(method || 'POST'),
+      url: String(url || '/'),
+      preset: resolvedPreset,
+      customInstruction: customInstruction ? String(customInstruction) : undefined,
+    });
+
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Data generation failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/health-score
+ * Computes deterministic health score + AI recommendations for a collection.
+ */
+export async function healthScore(req: Request, res: Response): Promise<void> {
+  try {
+    const { collectionId } = req.body;
+    if (!collectionId) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'collectionId is required' },
+      });
+      return;
+    }
+
+    const result = await healthScoreService.compute(req.userId!, String(collectionId));
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Health score computation failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * GET /api/ai/health-score/history?collectionId=xxx
+ * Returns last 90 days of daily health scores for a collection.
+ */
+export async function getHealthHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const collectionId = String(req.query['collectionId'] ?? '');
+    if (!collectionId) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'collectionId is required' } });
+      return;
+    }
+    const scores = await healthScoreService.getHistoricalScores(req.userId!, collectionId);
+    res.json({ success: true, data: scores });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load health history';
     res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
   }
 }
