@@ -265,6 +265,8 @@ export const RequestBuilder = () => {
               headers={activeTab.headers}
               body={activeTab.body}
               auth={activeTab.auth}
+              method={activeTab.method}
+              url={activeTab.url}
               onParamsChange={updateParams}
               onHeadersChange={updateHeaders}
               onBodyChange={updateBody}

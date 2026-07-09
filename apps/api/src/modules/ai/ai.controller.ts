@@ -9,6 +9,7 @@ import { NLToRequestService } from './features/nl-to-request.service';
 import { ConversationalTestBuilderService } from './features/conversational-test-builder.service';
 import { PerformanceProfilerService } from './features/performance-profiler.service';
 import { RequestOptimizerService } from './features/request-optimizer.service';
+import { DataGeneratorService } from './features/data-generator.service';
 import { usageTracker } from './utils/usage-tracker';
 
 const testGenerator = new TestGeneratorService();
@@ -21,6 +22,7 @@ const nlToRequestService = new NLToRequestService();
 const convTestBuilderService = new ConversationalTestBuilderService();
 const performanceProfiler = new PerformanceProfilerService();
 const requestOptimizer = new RequestOptimizerService();
+const dataGenerator = new DataGeneratorService();
 
 /**
  * POST /api/ai/generate-tests
@@ -446,6 +448,42 @@ export async function optimizeRequest(req: Request, res: Response): Promise<void
     res.json({ success: true, data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Request optimization failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/generate-data
+ * Generates contextually realistic test data from a request body structure.
+ */
+export async function generateData(req: Request, res: Response): Promise<void> {
+  try {
+    const { bodyStructure, method, url, preset, customInstruction } = req.body;
+
+    if (!bodyStructure || typeof bodyStructure !== 'object') {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'bodyStructure (object) is required' },
+      });
+      return;
+    }
+
+    const validPresets = ['happy_path', 'edge_cases', 'international', 'minimal', 'maximum'];
+    const resolvedPreset = validPresets.includes(preset) ? preset : 'happy_path';
+
+    const result = await dataGenerator.generate({
+      bodyStructure: bodyStructure as Record<string, unknown>,
+      method: String(method || 'POST'),
+      url: String(url || '/'),
+      preset: resolvedPreset,
+      customInstruction: customInstruction ? String(customInstruction) : undefined,
+    });
+
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Data generation failed';
     res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
   }
 }
