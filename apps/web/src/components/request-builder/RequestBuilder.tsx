@@ -22,6 +22,7 @@ import { useNLRequest } from '@/hooks/useNLRequest';
 import { TestBuilderChat } from '@/components/ai/TestBuilderChat';
 import { RequestOptimizer } from '@/components/ai/RequestOptimizer';
 import { useRequestOptimizer } from '@/hooks/useRequestOptimizer';
+import { FuzzTestRunner } from '@/components/fuzz/FuzzTestRunner';
 import { useAnomalyStore } from '@/stores/anomalyStore';
 import styles from './RequestBuilder.module.css';
 
@@ -52,6 +53,7 @@ export const RequestBuilder = () => {
   const { fetchCollections } = useCollectionStore();
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showCodeGenModal, setShowCodeGenModal] = useState(false);
+  const [showFuzzPanel, setShowFuzzPanel] = useState(false);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -246,6 +248,14 @@ export const RequestBuilder = () => {
             >
               <span>{'</>'}</span>
             </button>
+            <button
+              className={styles.saveButton}
+              onClick={() => setShowFuzzPanel(true)}
+              title="Fuzz Test this request"
+              type="button"
+            >
+              <span>⚡</span>
+            </button>
           </div>
 
           {/* Request Panel (Params, Headers, Body, Auth, Tests) */}
@@ -309,6 +319,18 @@ export const RequestBuilder = () => {
       <RequestOptimizer 
         isOpen={optimizer.isPanelOpen} 
         onClose={optimizer.closePanel} 
+      />
+
+      {/* AI Fuzz Test Runner */}
+      <FuzzTestRunner
+        isOpen={showFuzzPanel}
+        method={activeTab.method}
+        url={activeTab.url}
+        headers={Object.fromEntries(
+          activeTab.headers.filter((h) => h.enabled && h.key).map((h) => [h.key, h.value])
+        )}
+        body={activeTab.body?.content ?? null}
+        onClose={() => setShowFuzzPanel(false)}
       />
     </div>
   );

@@ -1,0 +1,73 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  cursor: default;
+  font-size: 11px;
+}
+.row:hover { background: var(--color-bg-elevated); border-color: var(--color-border); }
+
+/* Verdict accent */
+.pass    { border-left: 2px solid hsl(142,70%,45%); }
+.fail    { border-left: 2px solid hsl(38,92%,50%); }
+.crash   { border-left: 2px solid hsl(0,84%,60%); background: hsla(0,84%,60%,0.04); }
+.timeout { border-left: 2px solid hsl(20,90%,55%); }
+.leak    { border-left: 2px solid hsl(262,80%,60%); }
+
+.verdictBadge {
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.verdictPass    { background: hsla(142,70%,45%,0.15); color: hsl(142,70%,45%); }
+.verdictFail    { background: hsla(38,92%,50%,0.15);  color: hsl(38,92%,50%); }
+.verdictCrash   { background: hsla(0,84%,60%,0.15);   color: hsl(0,84%,60%); }
+.verdictTimeout { background: hsla(20,90%,55%,0.15);  color: hsl(20,90%,55%); }
+.verdictLeak    { background: hsla(262,80%,60%,0.15); color: hsl(262,80%,60%); }
+
+.catBadge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-hover);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.payload {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  min-width: 34px;
+  text-align: right;
+}
+.statusCrash  { color: hsl(0,84%,60%); }
+.statusPass   { color: hsl(142,70%,45%); }
+
+.ms {
+  font-size: 9px;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
+}

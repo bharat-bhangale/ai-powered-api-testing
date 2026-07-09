@@ -1,0 +1,99 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 10px;
+  background: var(--color-bg-elevated);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+.item:hover { border-color: var(--color-primary); background: var(--color-bg-hover); }
+.itemActive { border-color: var(--color-primary); background: var(--color-primary-subtle); }
+
+.checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-bg-surface);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+.checkboxChecked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.label { font-size: 11px; color: var(--color-text-secondary); }
+.labelActive { color: var(--color-text-primary); font-weight: var(--font-medium); }
+
+.count {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+/* AI toggle */
+.aiRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: hsla(262,80%,60%,0.06);
+  border: 1px solid hsla(262,80%,60%,0.2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.aiRow:hover { background: hsla(262,80%,60%,0.12); }
+.aiLabel { font-size: var(--text-xs); color: hsl(262,70%,65%); display: flex; align-items: center; gap: 5px; }
+.toggle {
+  width: 32px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  position: relative;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+.toggleOn { background: var(--color-primary); border-color: var(--color-primary); }
+.toggleKnob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--transition-fast);
+}
+.toggleOn .toggleKnob { transform: translateX(14px); }
