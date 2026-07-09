@@ -10,6 +10,7 @@ import { ConversationalTestBuilderService } from './features/conversational-test
 import { PerformanceProfilerService } from './features/performance-profiler.service';
 import { RequestOptimizerService } from './features/request-optimizer.service';
 import { DataGeneratorService } from './features/data-generator.service';
+import { HealthScoreService } from './features/health-score.service';
 import { usageTracker } from './utils/usage-tracker';
 
 const testGenerator = new TestGeneratorService();
@@ -23,6 +24,7 @@ const convTestBuilderService = new ConversationalTestBuilderService();
 const performanceProfiler = new PerformanceProfilerService();
 const requestOptimizer = new RequestOptimizerService();
 const dataGenerator = new DataGeneratorService();
+const healthScoreService = new HealthScoreService();
 
 /**
  * POST /api/ai/generate-tests
@@ -484,6 +486,50 @@ export async function generateData(req: Request, res: Response): Promise<void> {
     res.json({ success: true, data: result });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Data generation failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * POST /api/ai/health-score
+ * Computes deterministic health score + AI recommendations for a collection.
+ */
+export async function healthScore(req: Request, res: Response): Promise<void> {
+  try {
+    const { collectionId } = req.body;
+    if (!collectionId) {
+      res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'collectionId is required' },
+      });
+      return;
+    }
+
+    const result = await healthScoreService.compute(req.userId!, String(collectionId));
+    const usage = usageTracker.increment(req.userId!);
+    res.setHeader('X-AI-Usage-Remaining', String(usage.remaining));
+    res.json({ success: true, data: result });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Health score computation failed';
+    res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
+  }
+}
+
+/**
+ * GET /api/ai/health-score/history?collectionId=xxx
+ * Returns last 90 days of daily health scores for a collection.
+ */
+export async function getHealthHistory(req: Request, res: Response): Promise<void> {
+  try {
+    const collectionId = String(req.query['collectionId'] ?? '');
+    if (!collectionId) {
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'collectionId is required' } });
+      return;
+    }
+    const scores = await healthScoreService.getHistoricalScores(req.userId!, collectionId);
+    res.json({ success: true, data: scores });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load health history';
     res.status(500).json({ success: false, error: { code: 'AI_ERROR', message } });
   }
 }

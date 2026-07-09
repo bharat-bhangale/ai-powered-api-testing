@@ -20,6 +20,7 @@ import {
 import { PerformanceProfiler } from '@/components/ai/PerformanceProfiler';
 import { APIDiffPanel } from '@/components/api-diff/APIDiffPanel';
 import { SecurityScanner } from '@/components/security/SecurityScanner';
+import { HealthScore } from '@/components/dashboard/HealthScore';
 import styles from './CollectionTree.module.css';
 
 const METHOD_COLORS: Record<string, string> = {
@@ -55,6 +56,7 @@ export const CollectionTree = () => {
   const [profilerTarget, setProfilerTarget] = useState<{ id: string; name: string } | null>(null);
   const [diffTarget, setDiffTarget] = useState<{ id: string; name: string } | null>(null);
   const [securityTarget, setSecurityTarget] = useState<{ id: string; name: string } | null>(null);
+  const [healthTarget, setHealthTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Find the active tab's savedRequestId for highlighting
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -213,6 +215,13 @@ export const CollectionTree = () => {
           if (type === 'collection') {
             const col = collections.find((c) => c._id === targetId);
             if (col) setSecurityTarget({ id: targetId, name: col.name });
+          }
+          break;
+
+        case 'health':
+          if (type === 'collection') {
+            const col = collections.find((c) => c._id === targetId);
+            if (col) setHealthTarget({ id: targetId, name: col.name });
           }
           break;
       }
@@ -399,6 +408,16 @@ export const CollectionTree = () => {
         collectionId={securityTarget.id}
         collectionName={securityTarget.name}
         onClose={() => setSecurityTarget(null)}
+      />
+    )}
+
+    {/* Health Score Panel */}
+    {healthTarget && (
+      <HealthScore
+        isOpen
+        collectionId={healthTarget.id}
+        collectionName={healthTarget.name}
+        onClose={() => setHealthTarget(null)}
       />
     )}
     </>

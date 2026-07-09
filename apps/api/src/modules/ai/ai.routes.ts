@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateTests, debugRequest, chat, getUsage, generateSuite, analyzeCoverage, generateDocs, downloadDocs, nlToRequest, testBuilderMessage, performanceProfile, optimizeRequest, generateData } from './ai.controller';
+import { generateTests, debugRequest, chat, getUsage, generateSuite, analyzeCoverage, generateDocs, downloadDocs, nlToRequest, testBuilderMessage, performanceProfile, optimizeRequest, generateData, healthScore, getHealthHistory } from './ai.controller';
 import { authenticate } from '../../middleware/authenticate';
 
 const router = Router();
@@ -20,5 +20,7 @@ router.post('/test-builder/message', testBuilderMessage);
 router.post('/performance-profile', performanceProfile);
 router.post('/optimize-request', optimizeRequest);
 router.post('/generate-data', generateData);
+router.post('/health-score', healthScore);
+router.get('/health-score/history', getHealthHistory);
 
 export default router;
