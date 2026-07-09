@@ -61,6 +61,7 @@ import discoveryRouter from './modules/api-discovery/api-discovery.routes';
 import mockServerRouter from './modules/mock-server/mock-server.routes';
 import anomalyRouter from './modules/anomaly-detection/anomaly-detection.routes';
 import diffRouter from './modules/api-diff/api-diff.routes';
+import securityRouter from './modules/security-scanner/security-scanner.routes';
 
 app.use('/api', executorRoutes);
 app.use('/api/auth', authRoutes);
@@ -86,6 +87,7 @@ app.use('/api/discovery', discoveryRouter);
 app.use('/api/mock-server', mockServerRouter);
 app.use('/api/anomalies', anomalyRouter);
 app.use('/api/diff', diffRouter);
+app.use('/api/security', securityRouter);
 
 // ===== 404 Handler =====
 app.use((_req, res) => {
