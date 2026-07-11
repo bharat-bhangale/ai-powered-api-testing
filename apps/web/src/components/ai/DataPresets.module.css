@@ -1,0 +1,50 @@
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.preset {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+.preset:hover { background: var(--color-bg-hover); color: var(--color-text-primary); border-color: var(--color-text-tertiary); }
+
+.presetActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+}
+
+/* Per-preset accent colors */
+.happy    { }
+.happy.presetActive    { border-color: hsl(142,70%,45%); background: hsla(142,70%,45%,0.1); color: hsl(142,65%,38%); }
+.edge     { }
+.edge.presetActive     { border-color: hsl(38,92%,50%);  background: hsla(38,92%,50%,0.1);  color: hsl(38,80%,42%); }
+.intl     { }
+.intl.presetActive     { border-color: hsl(217,91%,60%); background: hsla(217,91%,60%,0.1); color: hsl(217,70%,50%); }
+.minimal  { }
+.minimal.presetActive  { border-color: var(--color-text-tertiary); background: var(--color-bg-hover); color: var(--color-text-secondary); }
+.maximum  { }
+.maximum.presetActive  { border-color: hsl(262,80%,60%); background: hsla(262,80%,60%,0.1); color: hsl(262,70%,55%); }
