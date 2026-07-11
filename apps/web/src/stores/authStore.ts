@@ -47,6 +47,9 @@ interface AuthActions {
 
 type AuthStore = AuthState & AuthActions;
 
+// Guard against double-invocation from React StrictMode
+let _checkAuthInFlight = false;
+
 // ===== Store =====
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -88,15 +91,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ user: null, accessToken: null, isAuthenticated: false });
   },
 
+  // refreshToken no longer re-throws — callers handle the failure via catch
   refreshToken: async () => {
-    try {
-      const res = await apiClient.post('/api/auth/refresh');
-      const { accessToken } = res.data.data;
-      set({ accessToken });
-    } catch {
-      set({ user: null, accessToken: null, isAuthenticated: false });
-      throw new Error('Token refresh failed');
-    }
+    const res = await apiClient.post('/api/auth/refresh');
+    const { accessToken } = res.data.data;
+    set({ accessToken });
   },
 
   /**
@@ -104,60 +103,44 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    *
    * Desktop mode:
    *   - No JWT tokens or cookies exist.
-   *   - Call GET /api/auth/me which returns the local user profile directly
-   *     (authenticate middleware injects local-user without requiring a header).
+   *   - Call GET /api/auth/me which returns the local user profile directly.
    *   - Set isAuthenticated: true immediately.
    *
-   * Web mode (unchanged):
+   * Web mode:
    *   - Attempt token refresh using the httpOnly cookie.
    *   - Then fetch /api/auth/me with the new access token.
-   *   - On failure: set unauthenticated.
+   *   - On failure: set isLoading:false + isAuthenticated:false → redirects to /login.
    */
   checkAuth: async () => {
+    // Prevent duplicate calls (React StrictMode double-invokes effects)
+    if (_checkAuthInFlight) return;
+    _checkAuthInFlight = true;
+
     if (isDesktopRuntime()) {
-      // Desktop: fetch local user profile from the already-running API
       try {
         const res = await apiClient.get('/api/auth/me');
         const user: User = res.data.data.user ?? DESKTOP_LOCAL_USER;
-        set({
-          user,
-          accessToken: null,  // No JWT in desktop mode
-          isAuthenticated: true,
-          isLoading: false,
-        });
+        set({ user, accessToken: null, isAuthenticated: true, isLoading: false });
       } catch {
-        // API not reachable yet — use the static fallback profile
-        set({
-          user: DESKTOP_LOCAL_USER,
-          accessToken: null,
-          isAuthenticated: true,
-          isLoading: false,
-        });
+        set({ user: DESKTOP_LOCAL_USER, accessToken: null, isAuthenticated: true, isLoading: false });
+      } finally {
+        _checkAuthInFlight = false;
       }
       return;
     }
 
     // Web mode: standard JWT session check
     try {
-      // Try refreshing the token first (uses httpOnly cookie)
       await get().refreshToken();
-
-      // Fetch user profile
       const res = await apiClient.get('/api/auth/me', {
         headers: { Authorization: `Bearer ${get().accessToken}` },
       });
-      set({
-        user: res.data.data.user,
-        isAuthenticated: true,
-        isLoading: false,
-      });
+      set({ user: res.data.data.user, isAuthenticated: true, isLoading: false });
     } catch {
-      set({
-        user: null,
-        accessToken: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
+      // No valid session — ProtectedRoute will redirect to /login
+      set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false });
+    } finally {
+      _checkAuthInFlight = false;
     }
   },
 

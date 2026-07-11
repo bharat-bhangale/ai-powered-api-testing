@@ -100,8 +100,15 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Only handle 401s that haven't been retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Never retry auth endpoints — avoids infinite loops
+    const url: string = originalRequest?.url ?? '';
+    const isAuthEndpoint =
+      url.includes('/api/auth/refresh') ||
+      url.includes('/api/auth/login') ||
+      url.includes('/api/auth/register');
+
+    // Only handle 401s that haven't been retried yet and are not auth endpoints
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       // If already refreshing, queue the request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -123,8 +130,8 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
-        useAuthStore.getState().logout();
-        window.location.href = '/login';
+        // Update store state — ProtectedRoute will redirect via React Router (no full reload)
+        useAuthStore.setState({ user: null, accessToken: null, isAuthenticated: false, isLoading: false });
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

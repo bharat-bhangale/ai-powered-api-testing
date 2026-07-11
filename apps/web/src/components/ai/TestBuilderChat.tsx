@@ -17,6 +17,9 @@ const QUICK_STARTERS = [
   'Build a comprehensive suite covering status codes, auth, and data validation',
 ];
 
+// Stable empty array — used as selector fallback to prevent infinite re-renders
+const EMPTY_CONVERSATION: TestBuilderMessage[] = [];
+
 // ===== Main Component =====
 
 /**
@@ -39,7 +42,13 @@ export const TestBuilderChat = () => {
 
   // Reactive reads — will re-render when tabId or conversation changes
   const activeTabId = useRequestStore((s) => s.activeTabId) ?? '';
-  const conversation = useTestBuilderStore((s) => s.getConversation(activeTabId));
+
+  // Direct stable selector — avoids getConversation() which returns a new []
+  // literal as fallback, causing Zustand's snapshot check to always detect a
+  // change and trigger an infinite re-render loop.
+  const conversation = useTestBuilderStore(
+    (s) => s.conversationsByTab[activeTabId] ?? EMPTY_CONVERSATION,
+  );
 
   // Auto-scroll
   useEffect(() => {
